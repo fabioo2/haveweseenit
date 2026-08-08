@@ -31,8 +31,8 @@ import type { SearchResult } from '@/lib/tmdb'
 const FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'both', label: 'Both seen' },
-  { value: 'fabio', label: 'Only Fabio' },
-  { value: 'haemin', label: 'Only Haemin' },
+  { value: 'fabio', label: 'Fabio' },
+  { value: 'haemin', label: 'Haemin' },
   { value: 'watchlist', label: 'Watchlist' },
 ] as const
 
@@ -55,8 +55,8 @@ const SORT_LABELS: Record<string, string> = Object.fromEntries(
 const EMPTY_STATES: Record<Filter, string> = {
   all: 'Nothing here yet. Search for a movie to get started.',
   both: "You haven't both seen anything yet.",
-  fabio: 'Nothing Fabio has seen that Haemin hasn’t.',
-  haemin: 'Nothing Haemin has seen that Fabio hasn’t.',
+  fabio: 'Fabio hasn’t watched anything yet.',
+  haemin: 'Haemin hasn’t watched anything yet.',
   watchlist: 'Watchlist is empty.',
 }
 
@@ -343,10 +343,12 @@ function matchesFilter(entry: Entry, filter: Filter): boolean {
   switch (filter) {
     case 'both':
       return entry.fabio_watched && entry.haemin_watched
+    // Everything that person has seen, shared watches included — "only Fabio"
+    // turned out to be the less useful cut.
     case 'fabio':
-      return entry.fabio_watched && !entry.haemin_watched
+      return entry.fabio_watched
     case 'haemin':
-      return entry.haemin_watched && !entry.fabio_watched
+      return entry.haemin_watched
     case 'watchlist':
       return isWatchlist(entry)
     default:
