@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { SearchIcon } from 'lucide-react'
+import { ArrowUpDownIcon, SearchIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from '@/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { EntryCard } from '@/components/EntryCard'
 import { EntryDrawer } from '@/components/EntryDrawer'
@@ -12,7 +18,7 @@ import { SearchDialog } from '@/components/SearchDialog'
 import { useAddEntry, useDeleteEntry, useEntries, useUpdateEntry } from '@/hooks/useEntries'
 import { UnauthorizedError } from '@/lib/sheets'
 import { forgetToken, readToken, writeToken } from '@/lib/storage'
-import { entryId, isWatchlist, type Entry } from '@/lib/types'
+import { combinedRating, entryId, isWatchlist, type Entry } from '@/lib/types'
 import type { SearchResult } from '@/lib/tmdb'
 
 const FILTERS = [
@@ -24,6 +30,20 @@ const FILTERS = [
 ] as const
 
 type Filter = (typeof FILTERS)[number]['value']
+
+const SORTS = [
+  { value: 'watched', label: 'Recently watched' },
+  { value: 'added', label: 'Recently added' },
+  { value: 'rating-desc', label: 'Highest rated' },
+  { value: 'rating-asc', label: 'Lowest rated' },
+  { value: 'title', label: 'Title A–Z' },
+] as const
+
+type Sort = (typeof SORTS)[number]['value']
+
+const SORT_LABELS: Record<string, string> = Object.fromEntries(
+  SORTS.map(({ value, label }) => [value, label]),
+)
 
 const EMPTY_STATES: Record<Filter, string> = {
   all: 'Nothing here yet. Search for a movie to get started.',
@@ -38,6 +58,7 @@ export default function App() {
   const [token, setToken] = useState(readToken)
   const [authError, setAuthError] = useState<string>()
   const [filter, setFilter] = useState<Filter>('all')
+  const [sort, setSort] = useState<Sort>('watched')
   const [searchOpen, setSearchOpen] = useState(false)
   const [editing, setEditing] = useState<{ entry: Entry; isNew: boolean } | null>(null)
 
@@ -64,9 +85,22 @@ export default function App() {
   )
 
   const visible = useMemo(
-    () => entries.filter((entry) => matchesFilter(entry, filter)).sort(byRecency),
-    [entries, filter],
+    () =>
+      entries
+        .filter((entry) => matchesFilter(entry, filter))
+        .sort(comparatorFor(sort)),
+    [entries, filter, sort],
   )
+
+  // Watched and watchlist are different kinds of thing, so they get their own
+  // sections rather than one run-on list.
+  const watched = visible.filter((entry) => !isWatchlist(entry))
+  const watchlist = visible.filter(isWatchlist)
+  const showSectionHeadings = watched.length > 0 && watchlist.length > 0
+  const sections = [
+    { title: 'Watched', entries: watched },
+    { title: 'Watchlist', entries: watchlist },
+  ].filter((section) => section.entries.length > 0)
 
   if (!token) {
     return (
@@ -122,15 +156,36 @@ export default function App() {
   return (
     <div className="mx-auto min-h-dvh w-full max-w-lg pb-16">
       <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
-        <div className="flex items-center justify-between gap-2 px-4 py-3">
-          <h1 className="text-lg font-semibold tracking-tight">Have We Seen It?</h1>
-          <Button size="sm" onClick={() => setSearchOpen(true)}>
+        <div className="flex items-center gap-2 px-4 py-3">
+          <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
+            Have We Seen It?
+          </h1>
+
+          {/* Icon-only, so the filter chips below get the full width. */}
+          <Select
+            items={SORT_LABELS}
+            value={sort}
+            onValueChange={(value) => setSort(value as Sort)}
+          >
+            <SelectTrigger size="sm" className="shrink-0 px-2" aria-label="Sort by">
+              <ArrowUpDownIcon className="text-muted-foreground" />
+            </SelectTrigger>
+            <SelectContent>
+              {SORTS.map(({ value, label }) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Button size="sm" className="shrink-0" onClick={() => setSearchOpen(true)}>
             <SearchIcon />
             Add
           </Button>
         </div>
 
-        <div className="overflow-x-auto px-4 pb-3">
+        <div className="no-scrollbar overflow-x-auto px-4 pb-3">
           <ToggleGroup
             value={[filter]}
             onValueChange={(value) => {
@@ -139,7 +194,7 @@ export default function App() {
             }}
             variant="outline"
             size="sm"
-            className="w-max"
+            className="w-max select-none"
           >
             {FILTERS.map(({ value, label }) => (
               <ToggleGroupItem key={value} value={value} className="whitespace-nowrap px-3">
@@ -166,12 +221,25 @@ export default function App() {
           </p>
         )}
 
-        {visible.map((entry) => (
-          <EntryCard
-            key={entry.id}
-            entry={entry}
-            onSelect={(selected) => setEditing({ entry: selected, isNew: false })}
-          />
+        {sections.map(({ title, entries: sectionEntries }) => (
+          <section key={title} className="space-y-2">
+            {/* Only labelled when both kinds are on screen — otherwise the
+                filter chip already says what you're looking at. */}
+            {showSectionHeadings && (
+              <h2 className="flex items-baseline gap-2 pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {title}
+                <span className="text-muted-foreground/60">{sectionEntries.length}</span>
+              </h2>
+            )}
+
+            {sectionEntries.map((entry) => (
+              <EntryCard
+                key={entry.id}
+                entry={entry}
+                onSelect={(selected) => setEditing({ entry: selected, isNew: false })}
+              />
+            ))}
+          </section>
         ))}
       </main>
 
@@ -205,6 +273,36 @@ function matchesFilter(entry: Entry, filter: Filter): boolean {
       return isWatchlist(entry)
     default:
       return true
+  }
+}
+
+function comparatorFor(sort: Sort): (a: Entry, b: Entry) => number {
+  switch (sort) {
+    case 'added':
+      return (a, b) => b.added_at.localeCompare(a.added_at)
+    case 'rating-desc':
+      return byRating(-1)
+    case 'rating-asc':
+      return byRating(1)
+    case 'title':
+      return (a, b) => a.title.localeCompare(b.title)
+    default:
+      return byRecency
+  }
+}
+
+/** Unrated entries sink to the bottom whichever direction you sort. */
+function byRating(direction: 1 | -1) {
+  return (a: Entry, b: Entry): number => {
+    const left = combinedRating(a)
+    const right = combinedRating(b)
+
+    if (left === null || right === null) {
+      if (left === right) return a.title.localeCompare(b.title)
+      return left === null ? 1 : -1
+    }
+    if (left === right) return a.title.localeCompare(b.title)
+    return (left - right) * direction
   }
 }
 

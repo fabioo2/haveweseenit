@@ -1,6 +1,14 @@
+import { BookmarkIcon, StarIcon, UserRoundIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Poster } from '@/components/Poster'
-import { combinedRating, isWatchlist, PERSON_LABELS, type Entry } from '@/lib/types'
+import {
+  combinedRating,
+  isWatchlist,
+  PERSON_LABELS,
+  PERSON_STYLES,
+  type Entry,
+} from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 interface Props {
   entry: Entry
@@ -33,14 +41,19 @@ export function EntryCard({ entry, onSelect }: Props) {
         </div>
 
         {watchlist ? (
-          <Badge variant="outline">Watchlist</Badge>
+          <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+            <BookmarkIcon className="text-amber-600 dark:text-amber-400" />
+            Watchlist
+          </Badge>
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {(['fabio', 'haemin'] as const).map((person) => {
               if (!entry[`${person}_watched`]) return null
               const rating = entry[`${person}_rating`]
+              const style = PERSON_STYLES[person]
               return (
-                <Badge key={person} variant="secondary">
+                <Badge key={person} variant="outline" className={cn(style.badge)}>
+                  <UserRoundIcon className={style.icon} />
                   {PERSON_LABELS[person]}
                   {rating === null ? '' : ` ${rating}`}
                 </Badge>
@@ -52,7 +65,10 @@ export function EntryCard({ entry, onSelect }: Props) {
 
       {combined !== null && (
         <div className="shrink-0 text-right">
-          <p className="text-xl font-semibold leading-none">{formatRating(combined)}</p>
+          <p className="flex items-center gap-1 text-xl font-semibold leading-none">
+            <StarIcon className="size-4 fill-amber-400 text-amber-500" />
+            {formatRating(combined)}
+          </p>
           <p className="text-[10px] uppercase tracking-wide text-muted-foreground">both</p>
         </div>
       )}

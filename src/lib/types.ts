@@ -29,6 +29,23 @@ export const PERSON_LABELS: Record<Person, string> = {
 }
 
 /**
+ * One colour per person, defined once so a badge, a toggle and an icon can
+ * never drift apart. Tailwind needs these as complete literal class strings.
+ */
+export const PERSON_STYLES: Record<Person, { badge: string; icon: string; dot: string }> = {
+  fabio: {
+    badge: 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+    icon: 'text-sky-600 dark:text-sky-400',
+    dot: 'bg-sky-500',
+  },
+  haemin: {
+    badge: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+    icon: 'text-violet-600 dark:text-violet-400',
+    dot: 'bg-violet-500',
+  },
+}
+
+/**
  * Average of whichever ratings exist. Derived rather than stored so a rating
  * edit can never leave a stale combined value behind in the sheet.
  */

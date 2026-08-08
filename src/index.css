@@ -5,6 +5,15 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* The filter chips scroll sideways, but a visible scrollbar under a row of
+   pills reads as broken layout rather than as an affordance. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', sans-serif;
