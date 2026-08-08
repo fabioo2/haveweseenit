@@ -16,12 +16,13 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Poster } from '@/components/Poster'
 import { searchMovies, type SearchResult } from '@/lib/tmdb'
+import { entryId } from '@/lib/types'
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** tmdb ids already in the list, so we can mark them instead of allowing a duplicate. */
-  existingIds: Set<number>
+  /** Entry ids already in the list, so we can mark them rather than duplicate them. */
+  existingIds: Set<string>
   onSelect: (result: SearchResult) => void
 }
 
@@ -29,25 +30,39 @@ export function SearchDialog({ open, onOpenChange, existingIds, onSelect }: Prop
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string>()
 
   useEffect(() => {
     const trimmed = query.trim()
     if (!trimmed) {
       setResults([])
       setLoading(false)
+      setError(undefined)
       return
     }
 
     const controller = new AbortController()
     setLoading(true)
+    setError(undefined)
 
     const timer = setTimeout(() => {
       searchMovies(trimmed, controller.signal)
-        .then((found) => setResults(found))
-        .catch(() => {
-          /* aborted or offline — leave the previous results in place */
+        .then((found) => {
+          setResults(found)
+          setLoading(false)
         })
-        .finally(() => setLoading(false))
+        .catch((cause: unknown) => {
+          // An abort is the normal case — every keystroke cancels the previous
+          // request — so only a real failure should be reported or clear the
+          // loading state, which the next request has already taken over.
+          if (controller.signal.aborted) return
+          setError(
+            cause instanceof Error && cause.message
+              ? cause.message
+              : 'Search is unavailable right now.',
+          )
+          setLoading(false)
+        })
     }, 300)
 
     return () => {
@@ -61,20 +76,21 @@ export function SearchDialog({ open, onOpenChange, existingIds, onSelect }: Prop
     if (!open) {
       setQuery('')
       setResults([])
+      setError(undefined)
     }
   }, [open])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogHeader className="sr-only">
-        <DialogTitle>Search movies</DialogTitle>
-        <DialogDescription>Find a movie to add to your list</DialogDescription>
-      </DialogHeader>
-
       <DialogContent
         className="top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0"
         showCloseButton={false}
       >
+        <DialogHeader className="sr-only">
+          <DialogTitle>Search movies</DialogTitle>
+          <DialogDescription>Find a movie to add to your list</DialogDescription>
+        </DialogHeader>
+
         {/* TMDB already ranks the results, so cmdk must not re-filter them. */}
         <Command shouldFilter={false}>
           <CommandInput
@@ -84,19 +100,22 @@ export function SearchDialog({ open, onOpenChange, existingIds, onSelect }: Prop
           />
           <CommandList>
             <CommandEmpty>
-              {loading
-                ? 'Searching…'
-                : query.trim()
-                  ? 'Nothing found.'
-                  : 'Start typing a title.'}
+              {error
+                ? error
+                : loading
+                  ? 'Searching…'
+                  : query.trim()
+                    ? 'Nothing found.'
+                    : 'Start typing a title.'}
             </CommandEmpty>
 
             {results.map((result) => {
-              const alreadyAdded = existingIds.has(result.tmdb_id)
+              const id = entryId(result.media_type, result.tmdb_id)
+              const alreadyAdded = existingIds.has(id)
               return (
                 <CommandItem
-                  key={result.tmdb_id}
-                  value={String(result.tmdb_id)}
+                  key={id}
+                  value={id}
                   // Still selectable when added: picking it jumps to the entry
                   // rather than doing nothing.
                   onSelect={() => onSelect(result)}

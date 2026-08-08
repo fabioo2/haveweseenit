@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { ArrowUpDownIcon, SearchIcon, XIcon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -16,10 +16,16 @@ import { EntryDrawer } from '@/components/EntryDrawer'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { PassphraseGate } from '@/components/PassphraseGate'
 import { SearchDialog } from '@/components/SearchDialog'
-import { useAddEntry, useDeleteEntry, useEntries, useUpdateEntry } from '@/hooks/useEntries'
+import {
+  ENTRIES_KEY,
+  useAddEntry,
+  useDeleteEntry,
+  useEntries,
+  useUpdateEntry,
+} from '@/hooks/useEntries'
 import { UnauthorizedError } from '@/lib/sheets'
 import { forgetToken, readToken, writeToken } from '@/lib/storage'
-import { combinedRating, entryId, isWatchlist, type Entry } from '@/lib/types'
+import { combinedRating, entryId, isWatchlist, today, type Entry } from '@/lib/types'
 import type { SearchResult } from '@/lib/tmdb'
 
 const FILTERS = [
@@ -77,14 +83,20 @@ export default function App() {
       forgetToken()
       setToken('')
       setAuthError('That passphrase was not accepted.')
-      queryClient.removeQueries({ queryKey: ['entries'] })
+      queryClient.removeQueries({ queryKey: ENTRIES_KEY })
     }
   }, [entriesQuery.error, queryClient])
 
   const entries = useMemo(() => entriesQuery.data ?? [], [entriesQuery.data])
 
+  // Stable, so memoised cards actually stay memoised.
+  const openEntry = useCallback((entry: Entry) => {
+    setEditing({ entry, isNew: false })
+  }, [])
+
+  // Keyed by entry id, not raw tmdb_id: movie and TV ids collide.
   const existingIds = useMemo(
-    () => new Set(entries.map((entry) => entry.tmdb_id)),
+    () => new Set(entries.map((entry) => entry.id)),
     [entries],
   )
 
@@ -126,7 +138,6 @@ export default function App() {
     return (
       <PassphraseGate
         error={authError}
-        pending={entriesQuery.isFetching}
         onSubmit={(passphrase) => {
           setAuthError(undefined)
           writeToken(passphrase)
@@ -147,7 +158,8 @@ export default function App() {
   function handleSearchSelect(result: SearchResult) {
     setSearchOpen(false)
 
-    const existing = entries.find((entry) => entry.tmdb_id === result.tmdb_id)
+    const id = entryId(result.media_type, result.tmdb_id)
+    const existing = entries.find((entry) => entry.id === id)
     if (existing) {
       // Clear anything that could be hiding it, then jump to it and open it.
       setFilter('all')
@@ -162,6 +174,7 @@ export default function App() {
   }
 
   function handleSave(entry: Entry) {
+    const original = editing?.entry
     const wasNew = editing?.isNew
     setEditing(null)
 
@@ -170,12 +183,19 @@ export default function App() {
       addEntry.mutate(newEntry, {
         onError: (error) => toast.error(`Could not add ${entry.title}`, messageOf(error)),
       })
-    } else {
-      updateEntry.mutate(
-        { id: entry.id, patch: entry },
-        { onError: (error) => toast.error(`Could not save ${entry.title}`, messageOf(error)) },
-      )
+      return
     }
+
+    // Send only what changed. Sending the whole row would make the last save
+    // win outright — so one of you editing a note on a stale tab would quietly
+    // revert the other's rating.
+    const patch = original ? changedFields(original, entry) : entry
+    if (Object.keys(patch).length === 0) return
+
+    updateEntry.mutate(
+      { id: entry.id, patch },
+      { onError: (error) => toast.error(`Could not save ${entry.title}`, messageOf(error)) },
+    )
   }
 
   function handleDelete(id: string) {
@@ -294,7 +314,7 @@ export default function App() {
                 key={entry.id}
                 entry={entry}
                 highlighted={entry.id === highlightId}
-                onSelect={(selected) => setEditing({ entry: selected, isNew: false })}
+                onSelect={openEntry}
               />
             ))}
           </section>
@@ -374,6 +394,15 @@ function byRecency(a: Entry, b: Entry): number {
   return b[key].localeCompare(a[key])
 }
 
+function changedFields(before: Entry, after: Entry): Partial<Entry> {
+  const patch: Record<string, unknown> = {}
+  for (const key of Object.keys(after) as Array<keyof Entry>) {
+    if (key === 'id' || key === 'added_at') continue
+    if (before[key] !== after[key]) patch[key] = after[key]
+  }
+  return patch as Partial<Entry>
+}
+
 function draftFromSearch(result: SearchResult): Entry {
   return {
     id: entryId(result.media_type, result.tmdb_id),
@@ -390,13 +419,6 @@ function draftFromSearch(result: SearchResult): Entry {
     notes: '',
     added_at: '',
   }
-}
-
-function today(): string {
-  const now = new Date()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${now.getFullYear()}-${month}-${day}`
 }
 
 function messageOf(error: unknown) {

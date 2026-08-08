@@ -9,7 +9,9 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: false,
-      refetchOnWindowFocus: false,
+      // Two people write to one list, so a tab left open on one phone must
+      // pick up the other's changes when it comes back to the foreground.
+      refetchOnWindowFocus: true,
       staleTime: 30_000,
     },
   },

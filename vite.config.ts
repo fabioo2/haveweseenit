@@ -9,6 +9,12 @@ export default defineConfig({
   // https://<user>.github.io/haveweseenit/
   base: '/haveweseenit/',
   plugins: [react(), tailwindcss()],
+  build: {
+    // ~175 kB gzipped, cached after the first visit, and the weight is
+    // structural (react-dom, Base UI, react-query, cmdk). Splitting it would
+    // add loading states to a two-person app for no felt gain.
+    chunkSizeWarningLimit: 700,
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

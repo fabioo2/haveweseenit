@@ -61,6 +61,18 @@ export function isWatchlist(entry: Entry): boolean {
   return !entry.fabio_watched && !entry.haemin_watched
 }
 
+/**
+ * Movie and TV ids are separate TMDB namespaces and do collide, so the media
+ * type has to be part of the key — for dedupe and lookups, not just storage.
+ */
 export function entryId(mediaType: MediaType, tmdbId: number): string {
   return `${mediaType[0]}-${tmdbId}`
+}
+
+/** Local calendar date as YYYY-MM-DD — not toISOString(), which is UTC. */
+export function today(): string {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
 }

@@ -37,7 +37,16 @@ async function call<T>(payload: Record<string, unknown>): Promise<T> {
     throw new SheetsError(`Sheet request failed (${res.status})`)
   }
 
-  const data = (await res.json()) as ApiResponse<T>
+  // Apps Script answers with an HTML page and HTTP 200 when a deployment or
+  // authorisation is unhealthy, which would otherwise surface as a raw
+  // "Unexpected token '<'" in a toast.
+  let data: ApiResponse<T>
+  try {
+    data = (await res.json()) as ApiResponse<T>
+  } catch {
+    throw new SheetsError('Unexpected response from the sheet. Is the deployment current?')
+  }
+
   if (!data.ok) {
     if (data.error === 'unauthorized') throw new UnauthorizedError()
     throw new SheetsError(data.error)

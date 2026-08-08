@@ -5,10 +5,9 @@ import { Input } from '@/components/ui/input'
 interface Props {
   onSubmit: (passphrase: string) => void
   error?: string
-  pending?: boolean
 }
 
-export function PassphraseGate({ onSubmit, error, pending }: Props) {
+export function PassphraseGate({ onSubmit, error }: Props) {
   const [value, setValue] = useState('')
 
   function handleSubmit(event: FormEvent) {
@@ -39,8 +38,8 @@ export function PassphraseGate({ onSubmit, error, pending }: Props) {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <Button type="submit" className="w-full" disabled={!value.trim() || pending}>
-          {pending ? 'Checking…' : 'Unlock'}
+        <Button type="submit" className="w-full" disabled={!value.trim()}>
+          Unlock
         </Button>
       </form>
     </div>

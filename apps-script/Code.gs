@@ -37,9 +37,18 @@ var HEADERS = [
   'added_at'
 ];
 
+var cachedSpreadsheet = null;
+var cachedTimeZone = null;
+
 function doGet(e) {
   var params = (e && e.parameter) || {};
-  return handle(params.action, params, params.token);
+
+  // Reads only over GET. Allowing mutations here would mean the passphrase
+  // travelling in a URL, and so into browser history and proxy logs.
+  if (params.action && params.action !== 'list') {
+    return json({ ok: false, error: 'post_required' });
+  }
+  return handle('list', params, params.token);
 }
 
 function doPost(e) {
@@ -53,7 +62,12 @@ function doPost(e) {
 }
 
 function handle(action, payload, token) {
-  if (token !== scriptToken()) {
+  var expected = scriptToken();
+
+  // The !expected guard matters: with the property unset, scriptToken() returns
+  // null and a caller sending {"token": null} would pass a bare !== check,
+  // because null !== null is false. A misconfiguration must fail closed.
+  if (!expected || token !== expected) {
     return json({ ok: false, error: 'unauthorized' });
   }
 
@@ -78,8 +92,28 @@ function handle(action, payload, token) {
 
 /* ---------- storage ---------- */
 
+function spreadsheet() {
+  if (!cachedSpreadsheet) {
+    cachedSpreadsheet = SpreadsheetApp.openById(SHEET_ID);
+  }
+  return cachedSpreadsheet;
+}
+
+/**
+ * Sheets stores a date at midnight in the SPREADSHEET's zone, not the script's,
+ * so reads must be formatted in that same zone. Formatting in a fixed zone one
+ * side or the other silently shifts every date by a day - and since updates
+ * read-modify-write, the shift would compound on every save.
+ */
+function sheetTimeZone() {
+  if (!cachedTimeZone) {
+    cachedTimeZone = spreadsheet().getSpreadsheetTimeZone();
+  }
+  return cachedTimeZone;
+}
+
 function sheet() {
-  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var ss = spreadsheet();
   var sh = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
 
   if (sh.getLastRow() === 0) {
@@ -194,18 +228,18 @@ function entryToRow(entry) {
 /** Coerces sheet values (which come back as Date/number/string) into stable JSON types. */
 function normalize(entry) {
   return {
-    id: String(entry.id || ''),
-    media_type: String(entry.media_type || 'movie'),
+    id: text(entry.id),
+    media_type: text(entry.media_type) || 'movie',
     tmdb_id: num(entry.tmdb_id),
-    title: String(entry.title || ''),
+    title: text(entry.title),
     year: num(entry.year),
-    poster_path: String(entry.poster_path || ''),
+    poster_path: text(entry.poster_path),
     date_watched: dateString(entry.date_watched),
     fabio_watched: bool(entry.fabio_watched),
     haemin_watched: bool(entry.haemin_watched),
     fabio_rating: num(entry.fabio_rating),
     haemin_rating: num(entry.haemin_rating),
-    notes: String(entry.notes || ''),
+    notes: text(entry.notes),
     added_at: isDate(entry.added_at)
       ? entry.added_at.toISOString()
       : String(entry.added_at || '')
@@ -213,13 +247,15 @@ function normalize(entry) {
 }
 
 /**
- * Values handed back by the Sheets service do not reliably pass `instanceof
- * Date`, so check the internal class instead. Getting this wrong silently
- * turns a date into its display string on the update path.
+ * A cell whose value begins with = or + becomes a live formula in the owner's
+ * sheet, which is a data-exfiltration route (IMPORTXML and friends) via any
+ * string we did not author - a TMDB title, or a note. The leading apostrophe
+ * is a Sheets text marker and is not part of the stored value, so this does
+ * not change what reads back.
  */
-function isDate(value) {
-  return Object.prototype.toString.call(value) === '[object Date]' &&
-    !isNaN(value.getTime());
+function text(value) {
+  var string = value === null || value === undefined ? '' : String(value);
+  return /^[=+]/.test(string) ? "'" + string : string;
 }
 
 function num(value) {
@@ -232,11 +268,21 @@ function bool(value) {
   return value === true || value === 'TRUE' || value === 'true';
 }
 
+/**
+ * Values handed back by the Sheets service do not reliably pass `instanceof
+ * Date`, so check the internal class instead. Getting this wrong silently
+ * turns a date into its display string on the update path.
+ */
+function isDate(value) {
+  return Object.prototype.toString.call(value) === '[object Date]' &&
+    !isNaN(value.getTime());
+}
+
 /** Sheets may hand back a Date object for date_watched; we always store YYYY-MM-DD. */
 function dateString(value) {
   if (!value) return '';
   if (isDate(value)) {
-    return Utilities.formatDate(value, 'UTC', 'yyyy-MM-dd');
+    return Utilities.formatDate(value, sheetTimeZone(), 'yyyy-MM-dd');
   }
   return String(value).slice(0, 10);
 }

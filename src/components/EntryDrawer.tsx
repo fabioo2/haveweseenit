@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { Poster } from '@/components/Poster'
 import { RatingPicker } from '@/components/RatingPicker'
-import { combinedRating, PERSON_LABELS, type Entry } from '@/lib/types'
+import { combinedRating, PEOPLE, PERSON_LABELS, today, type Entry } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -61,7 +61,7 @@ export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) 
           </DrawerHeader>
 
           <div className="space-y-5 px-4 pb-2">
-            {(['fabio', 'haemin'] as const).map((person) => {
+            {PEOPLE.map((person) => {
               const watched = entry[`${person}_watched`]
               return (
                 <div key={person} className="space-y-2">
@@ -76,6 +76,11 @@ export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) 
                           [`${person}_watched`]: !watched,
                           // Clearing "watched" should not leave a stray rating behind.
                           ...(watched ? { [`${person}_rating`]: null } : {}),
+                          // Promoting a watchlist item shouldn't leave it dateless,
+                          // which would sink it to the bottom of every date sort.
+                          ...(!watched && !entry.date_watched
+                            ? { date_watched: today() }
+                            : {}),
                         } as Partial<Entry>)
                       }
                     >

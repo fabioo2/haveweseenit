@@ -1,9 +1,11 @@
+import { memo } from 'react'
 import { BookmarkIcon, StarIcon, UserRoundIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Poster } from '@/components/Poster'
 import {
   combinedRating,
   isWatchlist,
+  PEOPLE,
   PERSON_LABELS,
   PERSON_STYLES,
   type Entry,
@@ -17,9 +19,11 @@ interface Props {
   highlighted?: boolean
 }
 
-export function EntryCard({ entry, onSelect, highlighted }: Props) {
+/** Memoised: every keystroke in the list filter re-renders the whole list. */
+export const EntryCard = memo(function EntryCard({ entry, onSelect, highlighted }: Props) {
   const combined = combinedRating(entry)
   const watchlist = isWatchlist(entry)
+  const raters = PEOPLE.filter((person) => entry[`${person}_rating`] !== null)
 
   return (
     <button
@@ -47,13 +51,16 @@ export function EntryCard({ entry, onSelect, highlighted }: Props) {
         </div>
 
         {watchlist ? (
-          <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+          <Badge
+            variant="outline"
+            className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+          >
             <BookmarkIcon className="text-amber-600 dark:text-amber-400" />
             Watchlist
           </Badge>
         ) : (
           <div className="flex flex-wrap gap-1.5">
-            {(['fabio', 'haemin'] as const).map((person) => {
+            {PEOPLE.map((person) => {
               if (!entry[`${person}_watched`]) return null
               const rating = entry[`${person}_rating`]
               const style = PERSON_STYLES[person]
@@ -75,12 +82,16 @@ export function EntryCard({ entry, onSelect, highlighted }: Props) {
             <StarIcon className="size-4 fill-amber-400 text-amber-500" />
             {formatRating(combined)}
           </p>
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">both</p>
+          {/* Only an average of two is "both" — with one rating this is just
+              that person's score, and labelling it "both" reads as a lie. */}
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            {raters.length > 1 ? 'both' : PERSON_LABELS[raters[0]]}
+          </p>
         </div>
       )}
     </button>
   )
-}
+})
 
 function formatRating(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1)
