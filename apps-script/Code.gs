@@ -211,7 +211,8 @@ function findRow(id) {
 function rowToEntry(row) {
   var entry = {};
   for (var i = 0; i < HEADERS.length; i++) {
-    entry[HEADERS[i]] = row[i];
+    var value = row[i];
+    entry[HEADERS[i]] = typeof value === 'string' ? unescapeFormula(value) : value;
   }
   return normalize(entry);
 }
@@ -220,9 +221,28 @@ function entryToRow(entry) {
   var row = [];
   for (var i = 0; i < HEADERS.length; i++) {
     var value = entry[HEADERS[i]];
-    row.push(value === null || value === undefined ? '' : value);
+    if (value === null || value === undefined) value = '';
+    row.push(typeof value === 'string' ? escapeFormula(value) : value);
   }
   return row;
+}
+
+/**
+ * A cell whose value begins with = or + becomes a live formula in the owner's
+ * sheet, which is a data-exfiltration route (IMPORTXML and friends) via any
+ * string we did not author - a TMDB title, or a note. The apostrophe marks the
+ * cell as text.
+ *
+ * Escape on write and unescape on read, so the marker never reaches the client:
+ * Sheets keeps the apostrophe in the stored value rather than stripping it, and
+ * "+1" is a real film title.
+ */
+function escapeFormula(value) {
+  return /^[=+]/.test(value) ? "'" + value : value;
+}
+
+function unescapeFormula(value) {
+  return /^'[=+]/.test(value) ? value.slice(1) : value;
 }
 
 /** Coerces sheet values (which come back as Date/number/string) into stable JSON types. */
@@ -246,16 +266,8 @@ function normalize(entry) {
   };
 }
 
-/**
- * A cell whose value begins with = or + becomes a live formula in the owner's
- * sheet, which is a data-exfiltration route (IMPORTXML and friends) via any
- * string we did not author - a TMDB title, or a note. The leading apostrophe
- * is a Sheets text marker and is not part of the stored value, so this does
- * not change what reads back.
- */
 function text(value) {
-  var string = value === null || value === undefined ? '' : String(value);
-  return /^[=+]/.test(string) ? "'" + string : string;
+  return value === null || value === undefined ? '' : String(value);
 }
 
 function num(value) {
