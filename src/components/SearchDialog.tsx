@@ -97,11 +97,9 @@ export function SearchDialog({ open, onOpenChange, existingIds, onSelect }: Prop
                 <CommandItem
                   key={result.tmdb_id}
                   value={String(result.tmdb_id)}
-                  disabled={alreadyAdded}
-                  onSelect={() => {
-                    if (alreadyAdded) return
-                    onSelect(result)
-                  }}
+                  // Still selectable when added: picking it jumps to the entry
+                  // rather than doing nothing.
+                  onSelect={() => onSelect(result)}
                   className="gap-3"
                 >
                   <Poster

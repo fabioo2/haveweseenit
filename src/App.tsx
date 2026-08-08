@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowUpDownIcon, SearchIcon } from 'lucide-react'
+import { ArrowUpDownIcon, SearchIcon, XIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -59,6 +60,9 @@ export default function App() {
   const [authError, setAuthError] = useState<string>()
   const [filter, setFilter] = useState<Filter>('all')
   const [sort, setSort] = useState<Sort>('watched')
+  const [listQuery, setListQuery] = useState('')
+  const [pendingScrollId, setPendingScrollId] = useState<string | null>(null)
+  const [highlightId, setHighlightId] = useState<string | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [editing, setEditing] = useState<{ entry: Entry; isNew: boolean } | null>(null)
 
@@ -84,13 +88,29 @@ export default function App() {
     [entries],
   )
 
-  const visible = useMemo(
-    () =>
-      entries
-        .filter((entry) => matchesFilter(entry, filter))
-        .sort(comparatorFor(sort)),
-    [entries, filter, sort],
-  )
+  const visible = useMemo(() => {
+    const needle = listQuery.trim().toLowerCase()
+    return entries
+      .filter((entry) => matchesFilter(entry, filter))
+      .filter((entry) => !needle || entry.title.toLowerCase().includes(needle))
+      .sort(comparatorFor(sort))
+  }, [entries, filter, sort, listQuery])
+
+  // Waits for the card to exist — clearing the filters takes a render, and the
+  // entry may have been hidden by whatever was active.
+  useEffect(() => {
+    if (!pendingScrollId) return
+    const card = document.getElementById(`entry-${pendingScrollId}`)
+    if (!card) return
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setPendingScrollId(null)
+  }, [pendingScrollId, visible])
+
+  useEffect(() => {
+    if (!highlightId) return
+    const timer = setTimeout(() => setHighlightId(null), 2000)
+    return () => clearTimeout(timer)
+  }, [highlightId])
 
   // Watched and watchlist are different kinds of thing, so they get their own
   // sections rather than one run-on list.
@@ -126,6 +146,18 @@ export default function App() {
 
   function handleSearchSelect(result: SearchResult) {
     setSearchOpen(false)
+
+    const existing = entries.find((entry) => entry.tmdb_id === result.tmdb_id)
+    if (existing) {
+      // Clear anything that could be hiding it, then jump to it and open it.
+      setFilter('all')
+      setListQuery('')
+      setPendingScrollId(existing.id)
+      setHighlightId(existing.id)
+      setEditing({ entry: existing, isNew: false })
+      return
+    }
+
     setEditing({ entry: draftFromSearch(result), isNew: true })
   }
 
@@ -206,6 +238,29 @@ export default function App() {
       </header>
 
       <main className="space-y-2 p-4">
+        {entries.length > 0 && (
+          <div className="relative pb-1">
+            <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={listQuery}
+              onChange={(event) => setListQuery(event.target.value)}
+              placeholder="Filter your list…"
+              aria-label="Filter your list"
+              className="pl-9"
+            />
+            {listQuery && (
+              <button
+                type="button"
+                onClick={() => setListQuery('')}
+                aria-label="Clear filter"
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:text-foreground"
+              >
+                <XIcon className="size-4" />
+              </button>
+            )}
+          </div>
+        )}
+
         {entriesQuery.isError && !(entriesQuery.error instanceof UnauthorizedError) && (
           <div className="space-y-3 rounded-lg border border-destructive/40 p-4 text-sm">
             <p className="text-destructive">{entriesQuery.error.message}</p>
@@ -217,7 +272,9 @@ export default function App() {
 
         {entriesQuery.isSuccess && visible.length === 0 && (
           <p className="py-12 text-center text-sm text-muted-foreground">
-            {EMPTY_STATES[filter]}
+            {listQuery.trim()
+              ? `Nothing in your list matches “${listQuery.trim()}”.`
+              : EMPTY_STATES[filter]}
           </p>
         )}
 
@@ -236,6 +293,7 @@ export default function App() {
               <EntryCard
                 key={entry.id}
                 entry={entry}
+                highlighted={entry.id === highlightId}
                 onSelect={(selected) => setEditing({ entry: selected, isNew: false })}
               />
             ))}

@@ -13,17 +13,23 @@ import { cn } from '@/lib/utils'
 interface Props {
   entry: Entry
   onSelect: (entry: Entry) => void
+  /** Briefly ringed after the search jumps to this entry. */
+  highlighted?: boolean
 }
 
-export function EntryCard({ entry, onSelect }: Props) {
+export function EntryCard({ entry, onSelect, highlighted }: Props) {
   const combined = combinedRating(entry)
   const watchlist = isWatchlist(entry)
 
   return (
     <button
       type="button"
+      id={`entry-${entry.id}`}
       onClick={() => onSelect(entry)}
-      className="flex w-full items-center gap-3 rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent/50 focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
+      className={cn(
+        'flex w-full items-center gap-3 rounded-lg border bg-card p-3 text-left transition-all hover:bg-accent/50 focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none',
+        highlighted && 'border-primary ring-[3px] ring-primary/30',
+      )}
     >
       <Poster
         path={entry.poster_path}
