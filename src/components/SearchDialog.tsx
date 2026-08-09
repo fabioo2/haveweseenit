@@ -15,8 +15,8 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Poster } from '@/components/Poster'
-import { searchMovies, type SearchResult } from '@/lib/tmdb'
-import { entryId } from '@/lib/types'
+import { searchTitles, type SearchResult } from '@/lib/tmdb'
+import { entryId, languageLabel } from '@/lib/types'
 
 interface Props {
   open: boolean
@@ -46,7 +46,7 @@ export function SearchDialog({ open, onOpenChange, existingIds, onSelect }: Prop
     setError(undefined)
 
     const timer = setTimeout(() => {
-      searchMovies(trimmed, controller.signal)
+      searchTitles(trimmed, controller.signal)
         .then((found) => {
           setResults(found)
           setLoading(false)
@@ -87,8 +87,8 @@ export function SearchDialog({ open, onOpenChange, existingIds, onSelect }: Prop
         showCloseButton={false}
       >
         <DialogHeader className="sr-only">
-          <DialogTitle>Search movies</DialogTitle>
-          <DialogDescription>Find a movie to add to your list</DialogDescription>
+          <DialogTitle>Search movies and TV</DialogTitle>
+          <DialogDescription>Find a movie or series to add to your list</DialogDescription>
         </DialogHeader>
 
         {/* TMDB already ranks the results, so cmdk must not re-filter them. */}
@@ -96,7 +96,7 @@ export function SearchDialog({ open, onOpenChange, existingIds, onSelect }: Prop
           <CommandInput
             value={query}
             onValueChange={setQuery}
-            placeholder="Search for a movie…"
+            placeholder="Search for a movie or show…"
           />
           <CommandList>
             <CommandEmpty>
@@ -129,10 +129,22 @@ export function SearchDialog({ open, onOpenChange, existingIds, onSelect }: Prop
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{result.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {result.year ?? 'Year unknown'}
+                    <p className="truncate text-xs text-muted-foreground">
+                      {[
+                        result.year ?? 'Year unknown',
+                        result.original_language !== 'en' &&
+                          languageLabel(result.original_language),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </p>
                   </div>
+                  {/* Titles collide across the two: searching "Fargo" or
+                      "Shōgun" returns both a film and a series, and the year
+                      alone will not tell you which one you are about to add. */}
+                  <Badge variant="outline" className="shrink-0">
+                    {result.media_type === 'tv' ? 'TV' : 'Movie'}
+                  </Badge>
                   {alreadyAdded && <Badge variant="secondary">Added</Badge>}
                 </CommandItem>
               )

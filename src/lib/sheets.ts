@@ -54,14 +54,31 @@ async function call<T>(payload: Record<string, unknown>): Promise<T> {
   return data as T
 }
 
+/**
+ * The Apps Script deployment is updated by hand, so the client can be newer
+ * than the backend for as long as it takes to paste and redeploy. Filling in
+ * the fields an older deployment doesn't return yet means that window shows
+ * entries without seasons or genres, rather than white-screening the app on the
+ * first `.includes` of an undefined.
+ */
+function fromServer(entry: Entry): Entry {
+  return {
+    ...entry,
+    fabio_seasons: entry.fabio_seasons ?? [],
+    haemin_seasons: entry.haemin_seasons ?? [],
+    genres: entry.genres ?? [],
+    original_language: entry.original_language ?? '',
+  }
+}
+
 export async function listEntries(token: string): Promise<Entry[]> {
   const { entries } = await call<{ entries: Entry[] }>({ action: 'list', token })
-  return entries
+  return entries.map(fromServer)
 }
 
 export async function addEntry(token: string, entry: NewEntry): Promise<Entry> {
   const res = await call<{ entry: Entry }>({ action: 'add', token, entry })
-  return res.entry
+  return fromServer(res.entry)
 }
 
 export async function updateEntry(
@@ -70,7 +87,7 @@ export async function updateEntry(
   patch: Partial<Entry>,
 ): Promise<Entry> {
   const res = await call<{ entry: Entry }>({ action: 'update', token, id, patch })
-  return res.entry
+  return fromServer(res.entry)
 }
 
 export async function deleteEntry(token: string, id: string): Promise<void> {

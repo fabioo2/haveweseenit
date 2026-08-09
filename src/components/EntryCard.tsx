@@ -4,10 +4,13 @@ import { Badge } from '@/components/ui/badge'
 import { Poster } from '@/components/Poster'
 import {
   combinedRating,
+  formatSeasons,
   isWatchlist,
+  languageLabel,
   PEOPLE,
   PERSON_LABELS,
   PERSON_STYLES,
+  seasonsSeen,
   type Entry,
 } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -24,6 +27,18 @@ export const EntryCard = memo(function EntryCard({ entry, onSelect, highlighted 
   const combined = combinedRating(entry)
   const watchlist = isWatchlist(entry)
   const raters = PEOPLE.filter((person) => entry[`${person}_rating`] !== null)
+  const seasons = seasonsSeen(entry)
+
+  const meta = [
+    entry.year ? String(entry.year) : 'Year unknown',
+    // English is the unmarked case: tagging every Hollywood film "English"
+    // would bury the Korean and Japanese ones this line exists to surface.
+    entry.original_language && entry.original_language !== 'en'
+      ? languageLabel(entry.original_language)
+      : null,
+    seasons.length > 0 ? formatSeasons(seasons) : null,
+    entry.date_watched ? `watched ${formatDate(entry.date_watched)}` : null,
+  ].filter(Boolean)
 
   return (
     <button
@@ -44,10 +59,7 @@ export const EntryCard = memo(function EntryCard({ entry, onSelect, highlighted 
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="min-w-0">
           <p className="truncate font-medium leading-tight">{entry.title}</p>
-          <p className="text-xs text-muted-foreground">
-            {entry.year ?? 'Year unknown'}
-            {entry.date_watched && ` · watched ${formatDate(entry.date_watched)}`}
-          </p>
+          <p className="truncate text-xs text-muted-foreground">{meta.join(' · ')}</p>
         </div>
 
         {watchlist ? (

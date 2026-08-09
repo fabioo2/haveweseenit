@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { StarIcon } from 'lucide-react'
+import { CheckIcon, StarIcon } from 'lucide-react'
 import {
   Drawer,
   DrawerContent,
@@ -13,17 +13,22 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { Separator } from '@/components/ui/separator'
 import { Poster } from '@/components/Poster'
 import { RatingPicker } from '@/components/RatingPicker'
+import { seasonOptions, useSeasons } from '@/hooks/useSeasons'
+import type { Season } from '@/lib/tmdb'
 import {
   combinedRating,
+  formatSeasons,
+  languageLabel,
   PEOPLE,
   PERSON_LABELS,
+  PERSON_STYLES,
   today,
   type Entry,
   type Person,
 } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 interface Props {
   draft: Entry | null
@@ -35,12 +40,15 @@ interface Props {
 
 export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) {
   const [entry, setEntry] = useState<Entry | null>(draft)
+  const seasonsQuery = useSeasons(entry)
 
   useEffect(() => {
     setEntry(draft)
   }, [draft])
 
   if (!entry) return null
+
+  const isSeries = entry.media_type === 'tv'
 
   const patch = (changes: Partial<Entry>) =>
     setEntry((current) => (current ? { ...current, ...changes } : current))
@@ -55,8 +63,40 @@ export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) 
       return {
         ...current,
         [`${person}_watched`]: watched,
-        // Clearing "watched" should not leave a stray rating behind.
-        ...(watched ? withDate(current) : { [`${person}_rating`]: null }),
+        // Clearing "watched" should not leave a stray rating or a list of
+        // seasons behind claiming otherwise.
+        ...(watched
+          ? withDate(current)
+          : { [`${person}_rating`]: null, [`${person}_seasons`]: [] }),
+      }
+    })
+  }
+
+  /**
+   * Ticking a season is the series-shaped way of saying you watched it, so it
+   * marks the person watched exactly as tapping a score does. Untickng the last
+   * one is the undo of that, and lands back on the watchlist rather than
+   * leaving a watched show with nothing behind it.
+   */
+  function setSeasons(person: Person, seasons: number[]) {
+    setEntry((current) => {
+      if (!current) return current
+      const sorted = [...seasons].sort((a, b) => a - b)
+
+      if (sorted.length === 0) {
+        return {
+          ...current,
+          [`${person}_seasons`]: [],
+          [`${person}_watched`]: false,
+          [`${person}_rating`]: null,
+        }
+      }
+
+      return {
+        ...current,
+        [`${person}_seasons`]: sorted,
+        [`${person}_watched`]: true,
+        ...withDate(current),
       }
     })
   }
@@ -102,25 +142,39 @@ export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) 
                 utility on the header itself. */}
             <div className="min-w-0 flex-1 text-left">
               <DrawerTitle className="truncate">{entry.title}</DrawerTitle>
-              <DrawerDescription className="flex items-center gap-2 text-left">
+              <DrawerDescription className="flex flex-wrap items-center gap-x-2 text-left">
                 <span>{entry.year ?? 'Year unknown'}</span>
+                {entry.original_language && (
+                  <span>· {languageLabel(entry.original_language)}</span>
+                )}
                 {combined !== null && (
                   <span className="flex items-center gap-1 font-medium text-foreground">
                     <StarIcon className="size-3.5 fill-amber-400 text-amber-500" />
                     {formatRating(combined)}
                   </span>
                 )}
+                {entry.genres.length > 0 && (
+                  <span className="w-full truncate">{entry.genres.join(' · ')}</span>
+                )}
               </DrawerDescription>
             </div>
           </DrawerHeader>
 
-          <div className="space-y-5 px-4 pb-2">
+          <div className="space-y-4 px-4 pb-2">
+            {/* One tinted card per person: the switch, the seasons and the
+                score are all answers about that person, and floating in a
+                shared column they read as three unrelated widgets. */}
             {PEOPLE.map((person) => {
               const watched = entry[`${person}_watched`]
+              const style = PERSON_STYLES[person]
               return (
-                <div key={person} className="space-y-2">
+                <div key={person} className={cn('space-y-3 rounded-xl border p-3', style.card)}>
                   <div className="flex items-center justify-between">
-                    <Label htmlFor={`${person}-watched`} className="text-base">
+                    <Label
+                      htmlFor={`${person}-watched`}
+                      className="flex items-center gap-2 text-base"
+                    >
+                      <span className={cn('size-2 rounded-full', style.dot)} />
                       {PERSON_LABELS[person]}
                     </Label>
                     <div className="flex items-center gap-2">
@@ -131,20 +185,34 @@ export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) 
                         id={`${person}-watched`}
                         checked={watched}
                         onCheckedChange={(checked) => setWatched(person, checked)}
+                        className={style.switch}
                       />
                     </div>
                   </div>
+
+                  {isSeries && (
+                    <SeasonPicker
+                      person={person}
+                      seasons={seasonOptions(
+                        seasonsQuery.data,
+                        entry[`${person}_seasons`],
+                      )}
+                      loading={seasonsQuery.isPending}
+                      selected={entry[`${person}_seasons`]}
+                      onChange={(seasons) => setSeasons(person, seasons)}
+                      fillClass={style.fill}
+                    />
+                  )}
 
                   <RatingPicker
                     label={`${PERSON_LABELS[person]} rating`}
                     value={entry[`${person}_rating`]}
                     onChange={(value) => setRating(person, value)}
+                    fillClass={style.fill}
                   />
                 </div>
               )
             })}
-
-            <Separator />
 
             {watchedByAnyone && (
               <div className="space-y-2">
@@ -172,7 +240,9 @@ export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) 
             {!watchedByAnyone && (
               <p className="text-sm text-muted-foreground">
                 Neither of you has watched this yet, so it goes on the watchlist.
-                Tap a score to mark it watched.
+                {isSeries
+                  ? ' Tap a season or a score to mark it watched.'
+                  : ' Tap a score to mark it watched.'}
               </p>
             )}
           </div>
@@ -204,6 +274,103 @@ export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) 
         </div>
       </DrawerContent>
     </Drawer>
+  )
+}
+
+interface SeasonPickerProps {
+  person: Person
+  seasons: Season[]
+  loading: boolean
+  selected: number[]
+  onChange: (seasons: number[]) => void
+  fillClass: string
+}
+
+/**
+ * Numbers rather than season names, so a ten-season show still fits one row on
+ * a phone; the full name and episode count live in the title attribute.
+ *
+ * Plain buttons rather than ToggleGroup: the base toggle marks "on" with a
+ * whisper of bg-muted, and out-shouting it per person means fighting variant
+ * specificity. A tick plus the person's colour makes selection unmissable, and
+ * makes this row read as "pick a set" against the rating scale's "pick a
+ * level" below it.
+ */
+function SeasonPicker({ person, seasons, loading, selected, onChange, fillClass }: SeasonPickerProps) {
+  if (seasons.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        {loading ? 'Loading seasons…' : 'No season list available for this one.'}
+      </p>
+    )
+  }
+
+  const everySeason = seasons.map((season) => season.season_number)
+  const allSelected = selected.length === everySeason.length
+  const chosen = new Set(selected)
+
+  const toggle = (season: number) =>
+    onChange(
+      chosen.has(season)
+        ? selected.filter((value) => value !== season)
+        : [...selected, season],
+    )
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span
+          id={`${person}-seasons`}
+          className="text-xs font-medium text-muted-foreground"
+        >
+          Seasons {selected.length > 0 && `· ${formatSeasons(selected)}`}
+        </span>
+        {/* Bingeing the whole thing is the common case; ticking eight chips
+            one at a time to say so is not. */}
+        <button
+          type="button"
+          onClick={() => onChange(allSelected ? [] : everySeason)}
+          className="rounded-md px-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          {allSelected ? 'Clear' : 'All'}
+        </button>
+      </div>
+
+      <div className="no-scrollbar -mx-1 overflow-x-auto px-1">
+        <div
+          role="group"
+          aria-labelledby={`${person}-seasons`}
+          className="flex w-max select-none gap-1"
+        >
+          {seasons.map((season) => {
+            const isOn = chosen.has(season.season_number)
+            return (
+              <button
+                key={season.season_number}
+                type="button"
+                aria-pressed={isOn}
+                onClick={() => toggle(season.season_number)}
+                title={
+                  season.episode_count
+                    ? `${season.name} · ${season.episode_count} episodes`
+                    : season.name
+                }
+                className={cn(
+                  'flex h-8 min-w-9 items-center justify-center gap-1 rounded-md border px-2 text-sm font-medium transition-colors',
+                  'focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none',
+                  isOn
+                    ? fillClass
+                    : 'border-input bg-background text-muted-foreground hover:bg-accent',
+                )}
+              >
+                {isOn && <CheckIcon className="size-3" />}
+                {season.season_number}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
   )
 }
 

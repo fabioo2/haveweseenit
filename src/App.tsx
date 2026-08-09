@@ -9,6 +9,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
+  SelectValue,
 } from '@/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { EntryCard } from '@/components/EntryCard'
@@ -25,8 +26,22 @@ import {
 } from '@/hooks/useEntries'
 import { UnauthorizedError } from '@/lib/sheets'
 import { forgetToken, readToken, writeToken } from '@/lib/storage'
-import { combinedRating, entryId, isWatchlist, today, type Entry } from '@/lib/types'
+import {
+  combinedRating,
+  entryId,
+  isWatchlist,
+  languageLabel,
+  MEDIA_LABELS,
+  MEDIA_TYPES,
+  today,
+  type Entry,
+  type MediaType,
+} from '@/lib/types'
 import type { SearchResult } from '@/lib/tmdb'
+import { cn } from '@/lib/utils'
+
+/** Sentinel for "don't filter on this", so the selects stay single-valued. */
+const ANY = '__any__'
 
 const FILTERS = [
   { value: 'all', label: 'All' },
@@ -44,6 +59,7 @@ const SORTS = [
   { value: 'rating-desc', label: 'Highest rated' },
   { value: 'rating-asc', label: 'Lowest rated' },
   { value: 'title', label: 'Title A–Z' },
+  { value: 'language', label: 'Language' },
 ] as const
 
 type Sort = (typeof SORTS)[number]['value']
@@ -52,12 +68,17 @@ const SORT_LABELS: Record<string, string> = Object.fromEntries(
   SORTS.map(({ value, label }) => [value, label]),
 )
 
-const EMPTY_STATES: Record<Filter, string> = {
-  all: 'Nothing here yet. Search for a movie to get started.',
-  both: "You haven't both seen anything yet.",
-  fabio: 'Fabio hasn’t watched anything yet.',
-  haemin: 'Haemin hasn’t watched anything yet.',
-  watchlist: 'Watchlist is empty.',
+const EMPTY_STATES: Record<Filter, (noun: string) => string> = {
+  all: (noun) => `Nothing here yet. Search for a ${noun} to get started.`,
+  both: (noun) => `You haven't both seen a ${noun} yet.`,
+  fabio: (noun) => `Fabio hasn’t watched a ${noun} yet.`,
+  haemin: (noun) => `Haemin hasn’t watched a ${noun} yet.`,
+  watchlist: (noun) => `No ${noun}s on the watchlist.`,
+}
+
+const MEDIA_NOUNS: Record<MediaType, string> = {
+  movie: 'movie',
+  tv: 'show',
 }
 
 export default function App() {
@@ -65,6 +86,9 @@ export default function App() {
   const [token, setToken] = useState(readToken)
   const [authError, setAuthError] = useState<string>()
   const [filter, setFilter] = useState<Filter>('all')
+  const [tab, setTab] = useState<MediaType>('movie')
+  const [language, setLanguage] = useState<string>(ANY)
+  const [genre, setGenre] = useState<string>(ANY)
   const [sort, setSort] = useState<Sort>('watched')
   const [listQuery, setListQuery] = useState('')
   const [pendingScrollId, setPendingScrollId] = useState<string | null>(null)
@@ -100,13 +124,61 @@ export default function App() {
     [entries],
   )
 
+  const inTab = useMemo(
+    () => entries.filter((entry) => entry.media_type === tab),
+    [entries, tab],
+  )
+
+  // Both dropdowns offer only what is actually in the current tab, so there is
+  // never a language in the list that returns nothing.
+  const languages = useMemo(() => {
+    const codes = new Set(
+      inTab.map((entry) => entry.original_language).filter(Boolean),
+    )
+    return [...codes].sort((a, b) => languageLabel(a).localeCompare(languageLabel(b)))
+  }, [inTab])
+
+  const genres = useMemo(() => {
+    const names = new Set(inTab.flatMap((entry) => entry.genres))
+    return [...names].sort((a, b) => a.localeCompare(b))
+  }, [inTab])
+
+  const languageItems = useMemo(
+    () => ({
+      [ANY]: 'Any language',
+      ...Object.fromEntries(languages.map((code) => [code, languageLabel(code)])),
+    }),
+    [languages],
+  )
+
+  const genreItems = useMemo(
+    () => ({
+      [ANY]: 'Any genre',
+      ...Object.fromEntries(genres.map((name) => [name, name])),
+    }),
+    [genres],
+  )
+
+  // Switching tabs can strip the selected language or genre out from under the
+  // dropdown — Korean films but no Korean series. Drop it rather than showing
+  // an empty list under a filter that is no longer on offer.
+  useEffect(() => {
+    if (language !== ANY && !languages.includes(language)) setLanguage(ANY)
+  }, [language, languages])
+
+  useEffect(() => {
+    if (genre !== ANY && !genres.includes(genre)) setGenre(ANY)
+  }, [genre, genres])
+
   const visible = useMemo(() => {
     const needle = listQuery.trim().toLowerCase()
-    return entries
+    return inTab
       .filter((entry) => matchesFilter(entry, filter))
+      .filter((entry) => language === ANY || entry.original_language === language)
+      .filter((entry) => genre === ANY || entry.genres.includes(genre))
       .filter((entry) => !needle || entry.title.toLowerCase().includes(needle))
       .sort(comparatorFor(sort))
-  }, [entries, filter, sort, listQuery])
+  }, [inTab, filter, language, genre, sort, listQuery])
 
   // Waits for the card to exist — clearing the filters takes a render, and the
   // entry may have been hidden by whatever was active.
@@ -159,10 +231,16 @@ export default function App() {
     setSearchOpen(false)
 
     const id = entryId(result.media_type, result.tmdb_id)
+
+    // Search spans both kinds, so the result may well live in the other tab.
+    setTab(result.media_type)
+
     const existing = entries.find((entry) => entry.id === id)
     if (existing) {
       // Clear anything that could be hiding it, then jump to it and open it.
       setFilter('all')
+      setLanguage(ANY)
+      setGenre(ANY)
       setListQuery('')
       setPendingScrollId(existing.id)
       setHighlightId(existing.id)
@@ -237,7 +315,33 @@ export default function App() {
           </Button>
         </div>
 
-        <div className="no-scrollbar overflow-x-auto px-4 pb-3">
+        <div className="px-4 pb-2">
+          <ToggleGroup
+            value={[tab]}
+            onValueChange={(value) => {
+              const next = value[0]
+              if (next) setTab(next as MediaType)
+            }}
+            variant="outline"
+            size="sm"
+            spacing={0}
+            className="w-full select-none"
+          >
+            {MEDIA_TYPES.map((value) => (
+              <ToggleGroupItem key={value} value={value} className="flex-1">
+                {MEDIA_LABELS[value]}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
+
+        {/* Every way of narrowing the list in one place: the person chips
+            first, then language and genre as compact dropdowns that only
+            appear once there is a real choice to make. The row wraps rather
+            than scrolls — a clipped dropdown reads as a rendering bug, not
+            as "more this way". A dropdown with an active filter darkens so
+            it reads as "on" at a glance. */}
+        <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
           <ToggleGroup
             value={[filter]}
             onValueChange={(value) => {
@@ -246,7 +350,7 @@ export default function App() {
             }}
             variant="outline"
             size="sm"
-            className="w-max select-none"
+            className="w-max shrink-0 select-none"
           >
             {FILTERS.map(({ value, label }) => (
               <ToggleGroupItem key={value} value={value} className="whitespace-nowrap px-3">
@@ -254,6 +358,52 @@ export default function App() {
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
+
+          {languages.length > 1 && (
+            <Select
+              items={languageItems}
+              value={language}
+              onValueChange={(value) => setLanguage(value as string)}
+            >
+              <SelectTrigger
+                size="sm"
+                className={cn('shrink-0', language !== ANY && 'border-foreground/30 bg-muted')}
+                aria-label="Language"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(languageItems).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {genres.length > 1 && (
+            <Select
+              items={genreItems}
+              value={genre}
+              onValueChange={(value) => setGenre(value as string)}
+            >
+              <SelectTrigger
+                size="sm"
+                className={cn('shrink-0', genre !== ANY && 'border-foreground/30 bg-muted')}
+                aria-label="Genre"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(genreItems).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </header>
 
@@ -294,7 +444,9 @@ export default function App() {
           <p className="py-12 text-center text-sm text-muted-foreground">
             {listQuery.trim()
               ? `Nothing in your list matches “${listQuery.trim()}”.`
-              : EMPTY_STATES[filter]}
+              : language !== ANY || genre !== ANY
+                ? 'Nothing matches those filters.'
+                : EMPTY_STATES[filter](MEDIA_NOUNS[tab])}
           </p>
         )}
 
@@ -366,6 +518,16 @@ function comparatorFor(sort: Sort): (a: Entry, b: Entry) => number {
       return byRating(1)
     case 'title':
       return (a, b) => a.title.localeCompare(b.title)
+    // Groups the Korean films together and sorts within each group by title,
+    // which is the point of sorting by language at all.
+    case 'language':
+      return (a, b) => {
+        const left = languageLabel(a.original_language)
+        const right = languageLabel(b.original_language)
+        return left === right
+          ? a.title.localeCompare(b.title)
+          : left.localeCompare(right)
+      }
     default:
       return byRecency
   }
@@ -400,9 +562,25 @@ function changedFields(before: Entry, after: Entry): Partial<Entry> {
   const patch: Record<string, unknown> = {}
   for (const key of Object.keys(after) as Array<keyof Entry>) {
     if (key === 'id' || key === 'added_at') continue
-    if (before[key] !== after[key]) patch[key] = after[key]
+    if (!sameValue(before[key], after[key])) patch[key] = after[key]
   }
   return patch as Partial<Entry>
+}
+
+/**
+ * Seasons and genres are arrays, and a fresh one is a different reference on
+ * every render — comparing by identity would put them in every patch and
+ * quietly undo the point of sending diffs at all. Both are kept sorted, so
+ * comparing in order is enough.
+ */
+function sameValue(before: unknown, after: unknown): boolean {
+  if (Array.isArray(before) && Array.isArray(after)) {
+    return (
+      before.length === after.length &&
+      before.every((value, index) => value === after[index])
+    )
+  }
+  return before === after
 }
 
 function draftFromSearch(result: SearchResult): Entry {
@@ -420,6 +598,10 @@ function draftFromSearch(result: SearchResult): Entry {
     haemin_rating: null,
     notes: '',
     added_at: '',
+    fabio_seasons: [],
+    haemin_seasons: [],
+    original_language: result.original_language,
+    genres: result.genres,
   }
 }
 

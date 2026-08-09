@@ -1,6 +1,6 @@
 # Have We Seen It?
 
-A movie-watch tracker for two people, backed by a Google Sheet.
+A movie and TV tracker for two people, backed by a Google Sheet.
 
 Live at <https://fabioo2.github.io/haveweseenit/>
 
@@ -60,18 +60,28 @@ Tab `watched`, created automatically on first run:
 
 | Column | Notes |
 | --- | --- |
-| `id` | `m-27205` — `{media_type initial}-{tmdb_id}` |
-| `media_type` | `movie` today; `tv` slots in here later with no migration |
+| `id` | `m-27205` / `t-1396` — `{media_type initial}-{tmdb_id}` |
+| `media_type` | `movie` or `tv` |
 | `tmdb_id`, `title`, `year`, `poster_path` | denormalised from TMDB at add time |
 | `date_watched` | `YYYY-MM-DD`, empty while on the watchlist |
 | `fabio_watched`, `haemin_watched` | booleans |
 | `fabio_rating`, `haemin_rating` | 1–10, or empty |
 | `notes`, `added_at` | `added_at` is set by the script |
+| `fabio_seasons`, `haemin_seasons` | `1,2,3` — seasons that person has seen; empty for a movie |
+| `original_language` | ISO 639-1 from TMDB, e.g. `ko` |
+| `genres` | `Drama,Thriller` — names, not TMDB ids, so a read needs no lookup |
+
+New columns are only ever **appended**. `HEADERS` order *is* the sheet's column
+order, so inserting one in the middle would shift every existing row's values
+one column right. The script rewrites a short header row on the next request,
+which is what makes adding a column a paste-and-deploy with no migration.
 
 Combined rating is **derived, not stored** — the average of whichever ratings
 exist. Storing it would let an edit leave a stale value behind.
 
-An entry with both `watched` flags false is a watchlist item.
+An entry with both `watched` flags false is a watchlist item. For a series,
+ticking any season marks that person watched; clearing them all puts it back on
+the watchlist.
 
 ## Deploying
 

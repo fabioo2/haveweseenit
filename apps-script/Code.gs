@@ -21,6 +21,20 @@
 var SHEET_ID = '1hfmQVmX64QszxBXAWrvr97vHJVJ3738hJTOUUkmQNDs';
 var SHEET_NAME = 'watched';
 
+/**
+ * Bump on any change to HEADERS or the wire format. Echoed in every response,
+ * including the unauthorized one, so a single request can answer "is the code I
+ * just pasted actually the code that is live?" - saving the file, creating a
+ * new version and deploying it are three separate steps, and skipping any one
+ * of them fails silently by serving the previous version.
+ */
+var SCHEMA_VERSION = 2;
+
+/**
+ * Column order is the sheet's column order, so new fields are only ever
+ * APPENDED. Inserting one in the middle would silently shift every existing
+ * row's values one column to the right.
+ */
 var HEADERS = [
   'id',
   'media_type',
@@ -34,10 +48,15 @@ var HEADERS = [
   'fabio_rating',
   'haemin_rating',
   'notes',
-  'added_at'
+  'added_at',
+  'fabio_seasons',
+  'haemin_seasons',
+  'original_language',
+  'genres'
 ];
 
 var cachedSpreadsheet = null;
+var cachedSheet = null;
 var cachedTimeZone = null;
 
 function doGet(e) {
@@ -112,15 +131,44 @@ function sheetTimeZone() {
   return cachedTimeZone;
 }
 
+/**
+ * Cached per execution: the header check below costs a read, and findRow /
+ * listEntries / updateEntry each ask for the sheet within one request.
+ */
 function sheet() {
+  if (cachedSheet) return cachedSheet;
+
   var ss = spreadsheet();
   var sh = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
 
+  // A sheet created before a field was added is narrower than HEADERS, and
+  // writing past the last column throws rather than growing the grid.
+  var missing = HEADERS.length - sh.getMaxColumns();
+  if (missing > 0) sh.insertColumnsAfter(sh.getMaxColumns(), missing);
+
   if (sh.getLastRow() === 0) {
-    sh.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]).setFontWeight('bold');
+    writeHeaderRow(sh);
     sh.setFrozenRows(1);
+  } else if (!headerRowMatches(sh)) {
+    // Safe precisely because columns are only ever appended: the existing rows
+    // still line up, they just have empty cells under the new names.
+    writeHeaderRow(sh);
   }
+
+  cachedSheet = sh;
   return sh;
+}
+
+function writeHeaderRow(sh) {
+  sh.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]).setFontWeight('bold');
+}
+
+function headerRowMatches(sh) {
+  var current = sh.getRange(1, 1, 1, HEADERS.length).getValues()[0];
+  for (var i = 0; i < HEADERS.length; i++) {
+    if (String(current[i]) !== HEADERS[i]) return false;
+  }
+  return true;
 }
 
 function listEntries() {
@@ -222,6 +270,9 @@ function entryToRow(entry) {
   for (var i = 0; i < HEADERS.length; i++) {
     var value = entry[HEADERS[i]];
     if (value === null || value === undefined) value = '';
+    // A season array collapses to "1,2,3". A single season lands in the cell as
+    // the number 1, which seasonList() reads back just as happily.
+    if (Array.isArray(value)) value = value.join(',');
     row.push(typeof value === 'string' ? escapeFormula(value) : value);
   }
   return row;
@@ -247,9 +298,11 @@ function unescapeFormula(value) {
 
 /** Coerces sheet values (which come back as Date/number/string) into stable JSON types. */
 function normalize(entry) {
+  var mediaType = text(entry.media_type) || 'movie';
+
   return {
     id: text(entry.id),
-    media_type: text(entry.media_type) || 'movie',
+    media_type: mediaType,
     tmdb_id: num(entry.tmdb_id),
     title: text(entry.title),
     year: num(entry.year),
@@ -262,8 +315,60 @@ function normalize(entry) {
     notes: text(entry.notes),
     added_at: isDate(entry.added_at)
       ? entry.added_at.toISOString()
-      : String(entry.added_at || '')
+      : String(entry.added_at || ''),
+    // Only a series has seasons. Dropping them for a movie keeps a stray value
+    // from surviving in a column nothing on the client would ever show.
+    fabio_seasons: mediaType === 'tv' ? seasonList(entry.fabio_seasons) : [],
+    haemin_seasons: mediaType === 'tv' ? seasonList(entry.haemin_seasons) : [],
+    // ISO 639-1 from TMDB. Empty for rows added before the column existed, and
+    // the client renders those as "Unknown" rather than guessing English.
+    original_language: text(entry.original_language).toLowerCase(),
+    // Names, not TMDB's ids, so a read never needs the genre lookup tables and
+    // the sheet stays readable if either of you opens it directly.
+    genres: stringList(entry.genres)
   };
+}
+
+/** "Drama,Thriller" or the array the client patches with, either way a clean array. */
+function stringList(value) {
+  if (value === null || value === undefined || value === '') return [];
+
+  var raw = Array.isArray(value) ? value : String(value).split(',');
+  var names = [];
+
+  for (var i = 0; i < raw.length; i++) {
+    var name = String(raw[i]).trim();
+    // indexOf rather than a {} used as a set: an inherited Object.prototype key
+    // would make a genre literally named "constructor" dedupe itself away.
+    if (!name || names.indexOf(name) >= 0) continue;
+    names.push(name);
+  }
+  return names;
+}
+
+/**
+ * Accepts what any of the three callers hand over: a "1,2,3" cell, a bare
+ * number when only one season is stored, or the array the client patches with.
+ * Always returns a sorted, deduped array of whole seasons from 1 up, so the
+ * client can compare two of these index by index.
+ */
+function seasonList(value) {
+  if (value === null || value === undefined || value === '') return [];
+
+  var raw = Array.isArray(value) ? value : String(value).split(',');
+  var seasons = [];
+
+  for (var i = 0; i < raw.length; i++) {
+    var n = Number(String(raw[i]).trim());
+    if (!isFinite(n) || n < 1 || Math.floor(n) !== n) continue;
+    if (seasons.indexOf(n) >= 0) continue;
+    seasons.push(n);
+  }
+
+  seasons.sort(function (a, b) {
+    return a - b;
+  });
+  return seasons;
 }
 
 function text(value) {
@@ -300,6 +405,7 @@ function dateString(value) {
 }
 
 function json(payload) {
+  payload.schema_version = SCHEMA_VERSION;
   return ContentService
     .createTextOutput(JSON.stringify(payload))
     .setMimeType(ContentService.MimeType.JSON);
