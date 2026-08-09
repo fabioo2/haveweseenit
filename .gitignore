@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Session handoff notes — contains the shared passphrase
+HANDOFF.local.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
