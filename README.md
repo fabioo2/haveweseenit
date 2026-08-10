@@ -2,6 +2,8 @@
 
 A movie and TV tracker for two people, backed by a Google Sheet.
 
+<img width="505" height="700" alt="image" src="https://github.com/user-attachments/assets/14ff6071-c1f5-4a8e-9a58-acb2fda8811b" />
+
 Live at <https://fabioo2.github.io/haveweseenit/>
 
 ## How it works
