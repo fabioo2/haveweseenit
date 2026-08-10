@@ -1,4 +1,4 @@
-import type { Entry, NewEntry } from './types'
+import type { Entry, NewEntry, PublicEntry } from './types'
 
 const SCRIPT_URL = import.meta.env.VITE_SCRIPT_URL
 
@@ -68,6 +68,38 @@ function fromServer(entry: Entry): Entry {
     haemin_seasons: entry.haemin_seasons ?? [],
     genres: entry.genres ?? [],
     original_language: entry.original_language ?? '',
+  }
+}
+
+export interface PublicSnapshot {
+  generated_at: string
+  entries: PublicEntry[]
+}
+
+/**
+ * The one call that carries no passphrase. A bare GET with no headers stays a
+ * "simple request" like everything else here, and the response already allows
+ * any origin.
+ *
+ * Every failure resolves to an empty shelf rather than throwing: a stranger
+ * should never see an error screen, and this is also what the deploy window
+ * looks like from the client's side — the frontend can be live before the
+ * backend knows the action exists, in which case it answers `post_required`.
+ */
+export async function fetchPublicSnapshot(): Promise<PublicSnapshot> {
+  const empty: PublicSnapshot = { generated_at: '', entries: [] }
+  if (!SCRIPT_URL) return empty
+
+  try {
+    const res = await fetch(`${SCRIPT_URL}?action=public`, { redirect: 'follow' })
+    if (!res.ok) return empty
+
+    const data = (await res.json()) as ApiResponse<PublicSnapshot>
+    if (!data.ok) return empty
+
+    return { generated_at: data.generated_at ?? '', entries: data.entries ?? [] }
+  } catch {
+    return empty
   }
 }
 

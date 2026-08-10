@@ -16,6 +16,7 @@ import { EntryCard } from '@/components/EntryCard'
 import { EntryDrawer } from '@/components/EntryDrawer'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { PassphraseGate } from '@/components/PassphraseGate'
+import { PublicPage } from '@/components/PublicPage'
 import { SearchDialog } from '@/components/SearchDialog'
 import {
   ENTRIES_KEY,
@@ -81,6 +82,30 @@ const MEDIA_NOUNS: Record<MediaType, string> = {
   tv: 'show',
 }
 
+/**
+ * The public page is a query string rather than a route: GitHub Pages serves
+ * the same index.html whatever follows the base path, so `?shared` is a
+ * shareable link with no router and no 404 rewrite rules.
+ */
+const SHARED_PARAM = 'shared'
+
+function sharedInUrl(): boolean {
+  return new URLSearchParams(window.location.search).has(SHARED_PARAM)
+}
+
+/**
+ * replaceState, not pushState: previewing shouldn't need two taps of Back.
+ * The search string is assigned rather than edited through URLSearchParams,
+ * which would render the flag as `?shared=` — this link gets shared by hand,
+ * so the trailing `=` is worth avoiding. Safe because nothing else in this app
+ * puts anything in the query string.
+ */
+function setSharedInUrl(shared: boolean) {
+  const url = new URL(window.location.href)
+  url.search = shared ? `?${SHARED_PARAM}` : ''
+  window.history.replaceState(null, '', url)
+}
+
 export default function App() {
   const queryClient = useQueryClient()
   const [token, setToken] = useState(readToken)
@@ -95,6 +120,10 @@ export default function App() {
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [editing, setEditing] = useState<{ entry: Entry; isNew: boolean } | null>(null)
+  const [publicView, setPublicView] = useState(sharedInUrl)
+  // Without a passphrase the public page is the landing page, so reaching the
+  // gate is now a deliberate act rather than the default.
+  const [gateRequested, setGateRequested] = useState(false)
 
   const entriesQuery = useEntries(token)
   const addEntry = useAddEntry(token)
@@ -206,10 +235,32 @@ export default function App() {
     { title: 'Watchlist', entries: watchlist },
   ].filter((section) => section.entries.length > 0)
 
+  function enterPublicView() {
+    setPublicView(true)
+    setSharedInUrl(true)
+  }
+
+  function leavePublicView() {
+    setPublicView(false)
+    setSharedInUrl(false)
+  }
+
+  // A rejected passphrase drops back to the gate with its error, not to the
+  // public page — otherwise the typo would look like the app logging you out.
+  if (!token && !gateRequested && !authError) {
+    return (
+      <PublicPage mode="anonymous" onEnter={() => setGateRequested(true)} onExit={leavePublicView} />
+    )
+  }
+
   if (!token) {
     return (
       <PassphraseGate
         error={authError}
+        onBack={() => {
+          setAuthError(undefined)
+          setGateRequested(false)
+        }}
         onSubmit={(passphrase) => {
           setAuthError(undefined)
           writeToken(passphrase)
@@ -217,6 +268,13 @@ export default function App() {
         }}
       />
     )
+  }
+
+  // Checked before the loading screen: previewing shouldn't wait on the
+  // private list, and the token and query cache are untouched throughout, so
+  // this can never log anyone out.
+  if (publicView) {
+    return <PublicPage mode="preview" onEnter={() => {}} onExit={leavePublicView} />
   }
 
   // Hold the loading screen until the passphrase has actually been accepted, so
@@ -308,6 +366,15 @@ export default function App() {
               ))}
             </SelectContent>
           </Select>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0"
+            onClick={enterPublicView}
+          >
+            Shared
+          </Button>
 
           <Button size="sm" className="shrink-0" onClick={() => setSearchOpen(true)}>
             <SearchIcon />

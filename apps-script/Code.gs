@@ -28,7 +28,20 @@ var SHEET_NAME = 'watched';
  * new version and deploying it are three separate steps, and skipping any one
  * of them fails silently by serving the previous version.
  */
-var SCHEMA_VERSION = 2;
+var SCHEMA_VERSION = 3;
+
+/**
+ * The public "top picks" page. A title qualifies when EITHER person rated it
+ * at least this high - a strong opinion from one of them is a recommendation,
+ * and requiring both to have seen it would publish almost nothing.
+ */
+var PUBLIC_MIN_RATING = 9;
+
+/** Guards the 9KB-per-property limit. Nowhere near binding at current size. */
+var PUBLIC_MAX_ENTRIES = 30;
+
+var PUBLIC_SNAPSHOT_KEY = 'PUBLIC_SNAPSHOT';
+var PUBLIC_SNAPSHOT_AT_KEY = 'PUBLIC_SNAPSHOT_AT';
 
 /**
  * Column order is the sheet's column order, so new fields are only ever
@@ -62,6 +75,17 @@ var cachedTimeZone = null;
 function doGet(e) {
   var params = (e && e.parameter) || {};
 
+  // The one unauthenticated action, dispatched here rather than inside
+  // handle(): everything past handle()'s token guard stays authenticated by
+  // construction, instead of the guard growing an exception to reason about.
+  // It reads a script property and never opens the spreadsheet, which is what
+  // keeps anonymous traffic cheap. GET-only - a POST of the same action falls
+  // through to the guard and is rejected, which is the correct fail-closed
+  // answer for an action that never needs to be a POST.
+  if (params.action === 'public') {
+    return json(publicSnapshot());
+  }
+
   // Reads only over GET. Allowing mutations here would mean the passphrase
   // travelling in a URL, and so into browser history and proxy logs.
   if (params.action && params.action !== 'list') {
@@ -93,7 +117,16 @@ function handle(action, payload, token) {
   try {
     switch (action) {
       case 'list':
-        return json({ ok: true, entries: listEntries() });
+        var entries = listEntries();
+        // The public page is refreshed as a side effect of either of them
+        // opening the app, off rows already in memory. Never at the expense of
+        // the private app: a Properties failure here must not fail the load.
+        try {
+          syncPublicSnapshot(entries);
+        } catch (err) {
+          // Deliberately swallowed - see above.
+        }
+        return json({ ok: true, entries: entries });
       case 'add':
         return json({ ok: true, entry: addEntry(payload.entry) });
       case 'update':
@@ -236,6 +269,119 @@ function deleteEntry(id) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/* ---------- public snapshot ---------- */
+
+/**
+ * The payload served to anyone without the passphrase. Falls back to an empty
+ * shelf rather than an error: a stranger should never meet a stack trace, and
+ * "no snapshot yet" is a legitimate state until one of them next opens the app.
+ */
+function publicSnapshot() {
+  var props = PropertiesService.getScriptProperties();
+  var raw = props.getProperty(PUBLIC_SNAPSHOT_KEY);
+  var entries = [];
+
+  if (raw) {
+    try {
+      entries = JSON.parse(raw);
+    } catch (err) {
+      entries = [];
+    }
+  }
+
+  return {
+    ok: true,
+    generated_at: props.getProperty(PUBLIC_SNAPSHOT_AT_KEY) || '',
+    entries: entries
+  };
+}
+
+/**
+ * Rebuilds the snapshot and stores it only when it actually changed, so a
+ * normal page load costs a property read and nothing else.
+ */
+function syncPublicSnapshot(entries) {
+  var next = JSON.stringify(buildPublicEntries(entries));
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty(PUBLIC_SNAPSHOT_KEY) === next) return;
+
+  props.setProperties({
+    PUBLIC_SNAPSHOT: next,
+    PUBLIC_SNAPSHOT_AT: new Date().toISOString()
+  });
+}
+
+function buildPublicEntries(entries) {
+  var picked = [];
+
+  for (var i = 0; i < entries.length; i++) {
+    if (qualifies(entries[i])) picked.push(publicEntry(entries[i]));
+  }
+
+  // By the score that earned the title its place, then by how well the other
+  // one took it. Sorting on the average instead would rank a 9/6 below an 8/8
+  // that does not belong on the page at all.
+  picked.sort(function (a, b) {
+    if (bestRating(a) !== bestRating(b)) return bestRating(b) - bestRating(a);
+    if (averageRating(a) !== averageRating(b)) {
+      return averageRating(b) - averageRating(a);
+    }
+    return String(a.title).localeCompare(String(b.title));
+  });
+
+  return picked.slice(0, PUBLIC_MAX_ENTRIES);
+}
+
+function qualifies(entry) {
+  return bestRating(entry) >= PUBLIC_MIN_RATING;
+}
+
+function ratings(entry) {
+  var given = [];
+  if (entry.fabio_rating !== null) given.push(entry.fabio_rating);
+  if (entry.haemin_rating !== null) given.push(entry.haemin_rating);
+  return given;
+}
+
+function bestRating(entry) {
+  var given = ratings(entry);
+  var best = 0;
+  for (var i = 0; i < given.length; i++) {
+    if (given[i] > best) best = given[i];
+  }
+  return best;
+}
+
+function averageRating(entry) {
+  var given = ratings(entry);
+  if (!given.length) return 0;
+
+  var total = 0;
+  for (var i = 0; i < given.length; i++) total += given[i];
+  return total / given.length;
+}
+
+/**
+ * Built as a literal whitelist, never by deleting keys off a row: a column
+ * added later must not become public merely because nobody remembered to
+ * exclude it. Notes and watch dates are the two that must never appear here -
+ * they are written in the expectation that only the two of them will read them.
+ */
+function publicEntry(entry) {
+  return {
+    id: entry.id,
+    media_type: entry.media_type,
+    tmdb_id: entry.tmdb_id,
+    title: entry.title,
+    year: entry.year,
+    poster_path: entry.poster_path,
+    fabio_rating: entry.fabio_rating,
+    haemin_rating: entry.haemin_rating,
+    original_language: entry.original_language,
+    genres: entry.genres
+  };
 }
 
 /* ---------- helpers ---------- */

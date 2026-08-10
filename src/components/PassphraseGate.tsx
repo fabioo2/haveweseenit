@@ -5,9 +5,11 @@ import { Input } from '@/components/ui/input'
 interface Props {
   onSubmit: (passphrase: string) => void
   error?: string
+  /** Back to the public page — the gate is no longer where a visitor lands. */
+  onBack?: () => void
 }
 
-export function PassphraseGate({ onSubmit, error }: Props) {
+export function PassphraseGate({ onSubmit, error, onBack }: Props) {
   const [value, setValue] = useState('')
 
   function handleSubmit(event: FormEvent) {
@@ -41,6 +43,12 @@ export function PassphraseGate({ onSubmit, error }: Props) {
         <Button type="submit" className="w-full" disabled={!value.trim()}>
           Unlock
         </Button>
+
+        {onBack && (
+          <Button type="button" variant="ghost" className="w-full" onClick={onBack}>
+            Back
+          </Button>
+        )}
       </form>
     </div>
   )

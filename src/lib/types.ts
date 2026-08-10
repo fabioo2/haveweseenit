@@ -34,6 +34,25 @@ export interface Entry {
 
 export type NewEntry = Omit<Entry, 'added_at'>
 
+/**
+ * The subset of a row served to anyone without the passphrase. Deliberately
+ * not `Pick<Entry, …>`: the server builds this as its own literal whitelist,
+ * and mirroring that shape here keeps the two definitions honest about notes
+ * and watch dates never being part of it.
+ */
+export interface PublicEntry {
+  id: string
+  media_type: MediaType
+  tmdb_id: number
+  title: string
+  year: number | null
+  poster_path: string
+  fabio_rating: number | null
+  haemin_rating: number | null
+  original_language: string
+  genres: string[]
+}
+
 export const PEOPLE = ['fabio', 'haemin'] as const
 export type Person = (typeof PEOPLE)[number]
 
@@ -74,9 +93,10 @@ export const PERSON_STYLES: Record<
 
 /**
  * Average of whichever ratings exist. Derived rather than stored so a rating
- * edit can never leave a stale combined value behind in the sheet.
+ * edit can never leave a stale combined value behind in the sheet. Typed on
+ * the two fields it reads so the public page can use it too.
  */
-export function combinedRating(entry: Entry): number | null {
+export function combinedRating(entry: Pick<Entry, 'fabio_rating' | 'haemin_rating'>): number | null {
   const given = [entry.fabio_rating, entry.haemin_rating].filter(
     (r): r is number => typeof r === 'number',
   )
