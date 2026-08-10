@@ -57,9 +57,11 @@ export const EntryCard = memo(function EntryCard({ entry, onSelect, highlighted 
       />
 
       <div className="min-w-0 flex-1 space-y-1.5">
+        {/* Wraps rather than truncates: a long title losing its end is worse
+            than a card being one line taller. */}
         <div className="min-w-0">
-          <p className="truncate font-medium leading-tight">{entry.title}</p>
-          <p className="truncate text-xs text-muted-foreground">{meta.join(' · ')}</p>
+          <p className="font-medium leading-tight">{entry.title}</p>
+          <p className="text-xs text-muted-foreground">{meta.join(' · ')}</p>
         </div>
 
         {watchlist ? (

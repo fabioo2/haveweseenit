@@ -49,27 +49,31 @@ export function PublicPage({ mode, onEnter, onExit }: Props) {
   return (
     <div className="mx-auto min-h-dvh w-full max-w-lg pb-16">
       <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
-        <div className="flex items-center gap-2 px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-semibold tracking-tight">
+        {/* The subtitle sits on its own row rather than sharing one with the
+            buttons: beside "Exit preview" it had a couple of hundred pixels
+            on a phone and lost its last few words to an ellipsis. */}
+        <div className="px-4 py-3">
+          <div className="flex items-center gap-2">
+            <h1 className="min-w-0 flex-1 text-lg font-semibold tracking-tight">
               Have We Seen It?
             </h1>
-            <p className="truncate text-xs text-muted-foreground">
-              Everything Fabio or Haemin rated 9 or higher.
-            </p>
+
+            <ThemeToggle />
+
+            {mode === 'preview' ? (
+              <Button size="sm" variant="outline" className="shrink-0" onClick={onExit}>
+                Exit preview
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" className="shrink-0" onClick={onEnter}>
+                Log in
+              </Button>
+            )}
           </div>
 
-          <ThemeToggle />
-
-          {mode === 'preview' ? (
-            <Button size="sm" variant="outline" className="shrink-0" onClick={onExit}>
-              Exit preview
-            </Button>
-          ) : (
-            <Button size="sm" variant="outline" className="shrink-0" onClick={onEnter}>
-              Log in
-            </Button>
-          )}
+          <p className="mt-1 text-xs text-muted-foreground">
+            Everything Fabio or Haemin rated 9 or higher.
+          </p>
         </div>
 
         <div className="px-4 pb-3">
@@ -131,10 +135,12 @@ function PublicCard({ entry }: { entry: PublicEntry }) {
     <div className="flex w-full items-center gap-3 rounded-lg border bg-card p-3">
       <Poster path={entry.poster_path} title={entry.title} className="h-20 w-14 shrink-0" />
 
+      {/* Titles and metadata wrap rather than truncate. A recommendation you
+          can't finish reading isn't one, and the cost is a taller card. */}
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="min-w-0">
-          <p className="truncate font-medium leading-tight">{entry.title}</p>
-          <p className="truncate text-xs text-muted-foreground">{meta.join(' · ')}</p>
+          <p className="font-medium leading-tight">{entry.title}</p>
+          <p className="text-xs text-muted-foreground">{meta.join(' · ')}</p>
         </div>
 
         <div className="flex flex-wrap gap-1.5">

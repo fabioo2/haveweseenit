@@ -128,8 +128,11 @@ export function SearchDialog({ open, onOpenChange, existingIds, onSelect }: Prop
                     className="h-14 w-10 shrink-0"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{result.title}</p>
-                    <p className="truncate text-xs text-muted-foreground">
+                    {/* Clamped rather than truncated: two lines is enough for
+                        any real title, and an unbounded wrap in a results
+                        list makes the rows jump around as you type. */}
+                    <p className="line-clamp-2 font-medium">{result.title}</p>
+                    <p className="text-xs text-muted-foreground">
                       {[
                         result.year ?? 'Year unknown',
                         result.original_language !== 'en' &&

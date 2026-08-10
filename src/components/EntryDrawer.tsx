@@ -141,7 +141,7 @@ export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) 
                 text-center via a group-data variant that outranks a plain
                 utility on the header itself. */}
             <div className="min-w-0 flex-1 text-left">
-              <DrawerTitle className="truncate">{entry.title}</DrawerTitle>
+              <DrawerTitle>{entry.title}</DrawerTitle>
               <DrawerDescription className="flex flex-wrap items-center gap-x-2 text-left">
                 <span>{entry.year ?? 'Year unknown'}</span>
                 {entry.original_language && (
@@ -154,7 +154,7 @@ export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) 
                   </span>
                 )}
                 {entry.genres.length > 0 && (
-                  <span className="w-full truncate">{entry.genres.join(' · ')}</span>
+                  <span className="w-full">{entry.genres.join(' · ')}</span>
                 )}
               </DrawerDescription>
             </div>

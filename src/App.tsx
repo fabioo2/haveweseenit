@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowUpDownIcon, SearchIcon, XIcon } from 'lucide-react'
+import { ArrowUpDownIcon, SearchIcon, Share2Icon, XIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -349,8 +349,11 @@ export default function App() {
   return (
     <div className="mx-auto min-h-dvh w-full max-w-lg pb-16">
       <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
-        <div className="flex items-center gap-2 px-4 py-3">
-          <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
+        {/* Four controls plus a title is more than a phone header holds. The
+            title is allowed to wrap rather than truncate, and everything but
+            Add is icon-only, so at 375 it still lands on one line. */}
+        <div className="flex items-center gap-1.5 px-4 py-3">
+          <h1 className="min-w-0 flex-1 text-base font-semibold tracking-tight sm:text-lg">
             Have We Seen It?
           </h1>
 
@@ -362,7 +365,14 @@ export default function App() {
             value={sort}
             onValueChange={(value) => setSort(value as Sort)}
           >
-            <SelectTrigger size="sm" className="shrink-0 px-2" aria-label="Sort by">
+            {/* The trailing chevron is dropped: next to ⇅ it says nothing the
+                icon doesn't, and its ~20px is the difference between the
+                title fitting on one line and wrapping on an Android phone. */}
+            <SelectTrigger
+              size="sm"
+              className="shrink-0 px-2 [&>svg:last-child]:hidden"
+              aria-label="Sort by"
+            >
               <ArrowUpDownIcon className="text-muted-foreground" />
             </SelectTrigger>
             <SelectContent>
@@ -377,10 +387,12 @@ export default function App() {
           <Button
             size="sm"
             variant="outline"
-            className="shrink-0"
+            className="shrink-0 px-2"
+            aria-label="See the shared page"
+            title="See the shared page"
             onClick={enterPublicView}
           >
-            Shared
+            <Share2Icon className="text-muted-foreground" />
           </Button>
 
           <Button size="sm" className="shrink-0" onClick={() => setSearchOpen(true)}>

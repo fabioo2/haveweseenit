@@ -12,12 +12,25 @@ runs as the sheet's owner — so the sheet itself stays private.
 
 ```
 browser ──POST (text/plain)──> Apps Script /exec ──> Google Sheet
+   ├────GET ?action=public──> Apps Script /exec ──> script properties
    └────GET──> TMDB (search + posters)
 ```
 
 A shared passphrase doubles as the API token. It is stored in `localStorage`
-per device and checked server-side by the script; without it, every request is
-rejected, so the list never loads for anyone who happens to find the URL.
+per device and checked server-side by the script. Every action that reads or
+writes the sheet requires it; the single exception is the public page below.
+
+**One URL, two pages.** The same link behaves differently depending on whether
+the browser has the passphrase stored:
+
+| | What you get |
+| --- | --- |
+| No passphrase stored | The public page: the titles either of them rated 9+, and nothing else |
+| Passphrase stored | The full private list — every entry, ratings, notes, watchlist |
+
+There is no separate address to share. `?shared` exists only so someone who
+*is* signed in can look at the public page; a stranger never needs it, and
+signing in from such a link drops you into the app rather than the preview.
 
 ## Local setup
 
@@ -33,9 +46,10 @@ npm run dev
 | `VITE_SCRIPT_URL` | Apps Script web app URL, ending in `/exec` |
 
 Both end up readable in the built bundle — that's unavoidable for a static
-site. Neither is worth much on its own: the TMDB token is a free personal key,
-and the script URL is useless without the passphrase, which is never in the
-bundle.
+site. The TMDB token is a free personal key. The script URL grants exactly what
+the public page shows and nothing more: anyone who digs it out of the bundle
+can read the 9+ snapshot, which is already public by design, but every other
+action needs the passphrase, and that is never in the bundle.
 
 ## The backend
 
@@ -52,7 +66,56 @@ deployment" instead would mint a new URL and break `VITE_SCRIPT_URL`.
 The script cannot answer CORS preflight requests, so every call from the client
 must stay a *simple request*: `POST` with `Content-Type: text/plain`, no custom
 headers, action and token inside the JSON body. See
-[`src/lib/sheets.ts`](src/lib/sheets.ts).
+[`src/lib/sheets.ts`](src/lib/sheets.ts). The public read is a bare `GET` with
+no headers, which is preflight-free for the same reason.
+
+Every response carries `schema_version`. Saving the file, cutting a version and
+deploying it are three separate steps, and skipping any one of them silently
+serves the previous code — so one request answers "is the code I just pasted
+actually live?".
+
+## The public page
+
+Anyone without the passphrase gets a read-only page instead of a login prompt.
+
+**What qualifies:** a title that *either* of them rated **9 or higher**. Not
+both — a strong opinion from one person is a recommendation, and requiring
+agreement would publish almost nothing. The headline score is therefore the
+*higher* of the two, not the average: on a page promising 9+, averaging a 9
+with a 6 would print 7.5. Both scores are shown on the badges regardless, so a
+disagreement stays visible rather than being averaged away.
+
+**What is published** — built in `publicEntry()` as a literal whitelist, never
+by deleting keys off a row, so a column added later cannot leak by default:
+
+```
+id, media_type, tmdb_id, title, year, poster_path,
+fabio_rating, haemin_rating, original_language, genres
+```
+
+`notes` and `date_watched` are **never** sent. They are not hidden by the
+client — they do not leave the server. Neither do watched flags, seasons, the
+watchlist, or anything rated 8 or below.
+
+**How it stays fresh:** the payload is a snapshot in two script properties
+(`PUBLIC_SNAPSHOT`, `PUBLIC_SNAPSHOT_AT`), rebuilt as a side effect of either
+of them loading the app — off rows already in memory, and written only when
+the qualifying list actually changed. So a public request reads one property
+and never opens the spreadsheet, which is what keeps anonymous traffic off the
+sheet's quota. The cost is staleness: if neither of them opens the app for a
+week, the page is a week old. Only data they already chose to publish can go
+stale, so this is a tradeoff rather than a risk.
+
+**Where the auth boundary is:** `action=public` is dispatched inside `doGet`
+*before* `handle()` is called. Everything past `handle()`'s token check stays
+authenticated by construction, rather than that check growing an exception to
+reason about. The same action sent over `POST` falls through to the guard and
+is refused. The guard is `!expected || token !== expected` — the `!expected`
+half matters, because a bare `!==` would let `{"token": null}` through when the
+`TOKEN` property is unset. A misconfiguration must fail closed.
+
+To take the page down without touching the frontend, set `PUBLIC_MIN_RATING`
+above 10 and deploy a new version; it goes empty on the next request.
 
 ### Sheet schema
 
