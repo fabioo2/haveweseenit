@@ -18,6 +18,7 @@ import { LoadingScreen } from '@/components/LoadingScreen'
 import { PassphraseGate } from '@/components/PassphraseGate'
 import { PublicPage } from '@/components/PublicPage'
 import { SearchDialog } from '@/components/SearchDialog'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import {
   ENTRIES_KEY,
   useAddEntry,
@@ -265,6 +266,10 @@ export default function App() {
           setAuthError(undefined)
           writeToken(passphrase)
           setToken(passphrase)
+          // Someone who followed a ?shared link and then signed in has asked
+          // to come inside; without this they would land back on the public
+          // page, because publicView was seeded from that same URL.
+          leavePublicView()
         }}
       />
     )
@@ -348,6 +353,8 @@ export default function App() {
           <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
             Have We Seen It?
           </h1>
+
+          <ThemeToggle />
 
           {/* Icon-only, so the filter chips below get the full width. */}
           <Select

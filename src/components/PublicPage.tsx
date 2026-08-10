@@ -1,14 +1,20 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { StarIcon, UserRoundIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Poster } from '@/components/Poster'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { fetchPublicSnapshot } from '@/lib/sheets'
 import {
   languageLabel,
+  MEDIA_LABELS,
+  MEDIA_TYPES,
   PEOPLE,
   PERSON_LABELS,
   PERSON_STYLES,
+  type MediaType,
   type PublicEntry,
 } from '@/lib/types'
 
@@ -24,18 +30,26 @@ interface Props {
  * 9 or higher, and nothing else. The payload it renders is built server-side —
  * notes and watch dates are not withheld here, they never arrive.
  */
+const EMPTY_TAB: Record<MediaType, string> = {
+  movie: 'No films up here yet.',
+  tv: 'No shows up here yet.',
+}
+
 export function PublicPage({ mode, onEnter, onExit }: Props) {
+  const [tab, setTab] = useState<MediaType>('movie')
+
   const snapshot = useQuery({
     queryKey: ['public-snapshot'],
     queryFn: fetchPublicSnapshot,
   })
 
   const entries = snapshot.data?.entries ?? []
+  const visible = entries.filter((entry) => entry.media_type === tab)
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-lg pb-16">
-      <header className="sticky top-0 z-10 border-b bg-background/95 px-4 py-3 backdrop-blur">
-        <div className="flex items-center gap-2">
+      <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
+        <div className="flex items-center gap-2 px-4 py-3">
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-semibold tracking-tight">
               Have We Seen It?
@@ -44,6 +58,8 @@ export function PublicPage({ mode, onEnter, onExit }: Props) {
               Everything Fabio or Haemin rated 9 or higher.
             </p>
           </div>
+
+          <ThemeToggle />
 
           {mode === 'preview' ? (
             <Button size="sm" variant="outline" className="shrink-0" onClick={onExit}>
@@ -55,17 +71,39 @@ export function PublicPage({ mode, onEnter, onExit }: Props) {
             </Button>
           )}
         </div>
+
+        <div className="px-4 pb-3">
+          <ToggleGroup
+            value={[tab]}
+            onValueChange={(value) => {
+              const next = value[0]
+              if (next) setTab(next as MediaType)
+            }}
+            variant="outline"
+            size="sm"
+            spacing={0}
+            className="w-full select-none"
+          >
+            {MEDIA_TYPES.map((value) => (
+              <ToggleGroupItem key={value} value={value} className="flex-1">
+                {MEDIA_LABELS[value]}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
       </header>
 
       <main className="space-y-2 p-4">
         {snapshot.isPending ? (
           <p className="py-12 text-center text-sm text-muted-foreground">Loading…</p>
-        ) : entries.length === 0 ? (
+        ) : visible.length === 0 ? (
           <p className="py-12 text-center text-sm text-muted-foreground">
-            Nothing here yet — no favourites have been picked out.
+            {entries.length === 0
+              ? 'Nothing here yet — no favourites have been picked out.'
+              : EMPTY_TAB[tab]}
           </p>
         ) : (
-          entries.map((entry) => <PublicCard key={entry.id} entry={entry} />)
+          visible.map((entry) => <PublicCard key={entry.id} entry={entry} />)
         )}
       </main>
     </div>
@@ -79,9 +117,9 @@ function PublicCard({ entry }: { entry: PublicEntry }) {
   // so the disagreement is still visible rather than averaged away.
   const best = bestRating(entry)
 
+  // No media type here — the tab above already says which you're looking at.
   const meta = [
     entry.year ? String(entry.year) : 'Year unknown',
-    entry.media_type === 'tv' ? 'TV' : 'Movie',
     // English is the unmarked case, exactly as on the private card.
     entry.original_language && entry.original_language !== 'en'
       ? languageLabel(entry.original_language)
