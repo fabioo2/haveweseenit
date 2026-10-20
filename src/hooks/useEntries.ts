@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addEntry, deleteEntry, listEntries, updateEntry } from '@/lib/sheets'
 import type { Entry, NewEntry } from '@/lib/types'
+import { useSession } from '@/store/session'
 
 export const ENTRIES_KEY = ['entries'] as const
 
-export function useEntries(token: string) {
+export function useEntries() {
+  const token = useSession((state) => state.token)
   return useQuery({
     queryKey: ENTRIES_KEY,
     queryFn: () => listEntries(token),
@@ -61,7 +63,8 @@ function replace(entries: Entry[], entry: Entry): Entry[] {
   return next
 }
 
-export function useAddEntry(token: string) {
+export function useAddEntry() {
+  const token = useSession((state) => state.token)
   return useOptimisticMutation(
     (entry: NewEntry) => addEntry(token, entry),
     (entries, entry) => [{ ...entry, added_at: new Date().toISOString() }, ...entries],
@@ -69,7 +72,8 @@ export function useAddEntry(token: string) {
   )
 }
 
-export function useUpdateEntry(token: string) {
+export function useUpdateEntry() {
+  const token = useSession((state) => state.token)
   return useOptimisticMutation(
     ({ id, patch }: { id: string; patch: Partial<Entry> }) => updateEntry(token, id, patch),
     (entries, { id, patch }) =>
@@ -78,7 +82,8 @@ export function useUpdateEntry(token: string) {
   )
 }
 
-export function useDeleteEntry(token: string) {
+export function useDeleteEntry() {
+  const token = useSession((state) => state.token)
   return useOptimisticMutation(
     (id: string) => deleteEntry(token, id),
     (entries, id) => entries.filter((entry) => entry.id !== id),

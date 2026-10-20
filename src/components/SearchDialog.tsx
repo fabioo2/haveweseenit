@@ -15,7 +15,8 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Poster } from '@/components/Poster'
-import { searchTitles, type SearchResult } from '@/lib/tmdb'
+import { useTitleSearch } from '@/hooks/useTitleSearch'
+import type { SearchResult } from '@/lib/tmdb'
 import { entryId, languageLabel } from '@/lib/types'
 
 interface Props {
@@ -28,56 +29,11 @@ interface Props {
 
 export function SearchDialog({ open, onOpenChange, existingIds, onSelect }: Props) {
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<SearchResult[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string>()
-
-  useEffect(() => {
-    const trimmed = query.trim()
-    if (!trimmed) {
-      setResults([])
-      setLoading(false)
-      setError(undefined)
-      return
-    }
-
-    const controller = new AbortController()
-    setLoading(true)
-    setError(undefined)
-
-    const timer = setTimeout(() => {
-      searchTitles(trimmed, controller.signal)
-        .then((found) => {
-          setResults(found)
-          setLoading(false)
-        })
-        .catch((cause: unknown) => {
-          // An abort is the normal case — every keystroke cancels the previous
-          // request — so only a real failure should be reported or clear the
-          // loading state, which the next request has already taken over.
-          if (controller.signal.aborted) return
-          setError(
-            cause instanceof Error && cause.message
-              ? cause.message
-              : 'Search is unavailable right now.',
-          )
-          setLoading(false)
-        })
-    }, 300)
-
-    return () => {
-      clearTimeout(timer)
-      controller.abort()
-    }
-  }, [query])
+  const { results, loading, error } = useTitleSearch(query)
 
   // Start each visit with a clean slate rather than last week's search.
   useEffect(() => {
-    if (!open) {
-      setQuery('')
-      setResults([])
-      setError(undefined)
-    }
+    if (!open) setQuery('')
   }, [open])
 
   return (

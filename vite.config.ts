@@ -10,9 +10,9 @@ export default defineConfig({
   base: '/haveweseenit/',
   plugins: [react(), tailwindcss()],
   build: {
-    // ~175 kB gzipped, cached after the first visit, and the weight is
-    // structural (react-dom, Base UI, react-query, cmdk). Splitting it would
-    // add loading states to a two-person app for no felt gain.
+    // The private list is lazy-loaded (see App.tsx), so a public-page visitor
+    // skips it. What remains in the entry chunk is structural (react-dom,
+    // Base UI, react-query), cached after the first visit.
     chunkSizeWarningLimit: 700,
   },
   resolve: {
