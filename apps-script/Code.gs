@@ -28,7 +28,7 @@ var SHEET_NAME = 'watched';
  * new version and deploying it are three separate steps, and skipping any one
  * of them fails silently by serving the previous version.
  */
-var SCHEMA_VERSION = 3;
+var SCHEMA_VERSION = 4;
 
 /**
  * The public "top picks" page. A title qualifies when EITHER person rated it
