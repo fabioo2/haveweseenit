@@ -3,14 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 import { StarIcon, UserRoundIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { MediaTabs } from '@/components/MediaTabs'
 import { Poster } from '@/components/Poster'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { fetchPublicSnapshot } from '@/lib/sheets'
 import {
   languageLabel,
-  MEDIA_LABELS,
-  MEDIA_TYPES,
   PEOPLE,
   PERSON_LABELS,
   PERSON_STYLES,
@@ -77,23 +75,7 @@ export function PublicPage({ mode, onEnter, onExit }: Props) {
         </div>
 
         <div className="px-4 pb-3">
-          <ToggleGroup
-            value={[tab]}
-            onValueChange={(value) => {
-              const next = value[0]
-              if (next) setTab(next as MediaType)
-            }}
-            variant="outline"
-            size="sm"
-            spacing={0}
-            className="w-full select-none"
-          >
-            {MEDIA_TYPES.map((value) => (
-              <ToggleGroupItem key={value} value={value} className="flex-1">
-                {MEDIA_LABELS[value]}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
+          <MediaTabs value={tab} onChange={setTab} />
         </div>
       </header>
 
