@@ -82,8 +82,10 @@ export function SearchDialog({ open, onOpenChange, existingIds, onSelect }: Prop
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* Pinned near the top on a phone: a third of the way down, the
+          on-screen keyboard covers most of the results list. */}
       <DialogContent
-        className="top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0"
+        className="top-[max(1rem,env(safe-area-inset-top))] translate-y-0 overflow-hidden rounded-xl! p-0 sm:top-1/3"
         showCloseButton={false}
       >
         <DialogHeader className="sr-only">
