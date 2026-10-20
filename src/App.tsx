@@ -436,10 +436,16 @@ export default function App() {
             }}
             variant="outline"
             size="sm"
-            className="w-max shrink-0 select-none"
+            spacing={1}
+            // Must never be wider than the screen: on a phone, anything that
+            // overflows widens the layout viewport, and every fixed overlay
+            // (the score drawer included) then stretches with it and pans
+            // sideways. Five chips fit on one line from 360px up; narrower
+            // phones wrap rather than overflow.
+            className="flex-wrap select-none"
           >
             {FILTERS.map(({ value, label }) => (
-              <ToggleGroupItem key={value} value={value} className="whitespace-nowrap px-3">
+              <ToggleGroupItem key={value} value={value} className="whitespace-nowrap px-2">
                 {label}
               </ToggleGroupItem>
             ))}

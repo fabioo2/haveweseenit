@@ -125,7 +125,10 @@ export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) 
   return (
     <Drawer open onOpenChange={(open) => !open && onClose()}>
       <DrawerContent className="max-h-[92dvh]">
-        <div className="mx-auto flex w-full max-w-md flex-col overflow-y-auto">
+        {/* overflow-x-hidden: overflow-y-auto alone makes x scrollable too,
+            so one stray pixel of width lets the whole sheet drift sideways
+            under a thumb. */}
+        <div className="mx-auto flex w-full max-w-md flex-col overflow-x-hidden overflow-y-auto overscroll-contain">
           {/* pb: DrawerHeader's base is p-4 pb-0, which leaves the poster
               touching the first person row. */}
           {/* md:gap-6 matters: DrawerHeader's base styles include md:gap-0.5,
@@ -247,8 +250,10 @@ export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) 
             )}
           </div>
 
-          {/* pb-8 keeps the last button clear of the home indicator on a phone. */}
-          <DrawerFooter>
+          {/* The safe-area inset keeps the last button clear of the home
+              indicator: index.html sets viewport-fit=cover, so nothing else
+              does. */}
+          <DrawerFooter className="pb-[max(1rem,env(safe-area-inset-bottom))]">
             <Button
               onClick={() =>
                 onSave({
