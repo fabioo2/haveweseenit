@@ -1,6 +1,8 @@
-import { combinedRating, isWatchlist, languageLabel, type Entry, type MediaType } from './types'
+import { combinedRating, isWatchlist } from './entries'
+import { languageLabel } from './format'
+import type { Entry, MediaType } from './types'
 
-/** Sentinel for "don't filter on this", so the selects stay single-valued. */
+/** Select value meaning "no filter". */
 export const ANY = '__any__'
 
 export const FILTERS = [
@@ -45,8 +47,6 @@ export function matchesFilter(entry: Entry, filter: Filter): boolean {
   switch (filter) {
     case 'both':
       return entry.fabio_watched && entry.haemin_watched
-    // Everything that person has seen, shared watches included — "only Fabio"
-    // turned out to be the less useful cut.
     case 'fabio':
       return entry.fabio_watched
     case 'haemin':
@@ -68,8 +68,7 @@ export function comparatorFor(sort: Sort): (a: Entry, b: Entry) => number {
       return byRating(1)
     case 'title':
       return (a, b) => a.title.localeCompare(b.title)
-    // Groups the Korean films together and sorts within each group by title,
-    // which is the point of sorting by language at all.
+    // By language, then title.
     case 'language':
       return (a, b) => {
         const left = languageLabel(a.original_language)
@@ -83,7 +82,7 @@ export function comparatorFor(sort: Sort): (a: Entry, b: Entry) => number {
   }
 }
 
-/** Unrated entries sink to the bottom whichever direction you sort. */
+/** Unrated entries go last in either direction. */
 function byRating(direction: 1 | -1) {
   return (a: Entry, b: Entry): number => {
     const left = combinedRating(a)
@@ -98,7 +97,7 @@ function byRating(direction: 1 | -1) {
   }
 }
 
-/** Watched things sort by when you watched them; watchlist items by when they were added. */
+/** Watched entries by watch date, then the watchlist by date added. */
 function byRecency(a: Entry, b: Entry): number {
   const aWatchlist = isWatchlist(a)
   const bWatchlist = isWatchlist(b)

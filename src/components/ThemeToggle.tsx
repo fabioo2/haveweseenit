@@ -3,9 +3,8 @@ import { MoonIcon, SunIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 /**
- * Which icon shows is decided in CSS off the `dark` class rather than in
- * React state: next-themes only resolves "system" in an effect, so anything
- * driven by that value renders the wrong icon for a frame first.
+ * The icon is switched in CSS via the `dark` class, because next-themes resolves
+ * the system theme after the first render.
  */
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme()

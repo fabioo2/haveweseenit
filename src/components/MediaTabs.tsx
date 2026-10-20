@@ -6,13 +6,12 @@ interface Props {
   onChange: (value: MediaType) => void
 }
 
-/** The Movies / TV switch, shared by the private list and the public page. */
+/** Movies / TV switch. */
 export function MediaTabs({ value, onChange }: Props) {
   return (
     <ToggleGroup
       value={[value]}
       onValueChange={(next) => {
-        // Tapping the active tab would otherwise deselect it.
         if (next[0]) onChange(next[0] as MediaType)
       }}
       variant="outline"

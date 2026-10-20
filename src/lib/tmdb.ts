@@ -3,7 +3,7 @@ import { MEDIA_TYPES, type MediaType } from './types'
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 const IMAGE_BASE = 'https://image.tmdb.org/t/p'
 
-/** TMDB serves several fixed widths; w92 for autocomplete rows, w185 for list cards. */
+/** Poster widths TMDB serves. */
 export type PosterSize = 'w92' | 'w154' | 'w185' | 'w342' | 'w500'
 
 export interface SearchResult {
@@ -24,11 +24,7 @@ export interface Season {
   year: number | null
 }
 
-/**
- * Multi-search returns movies, series and people in one ranked list. Movies
- * carry title/release_date where series carry name/first_air_date, and only
- * the multi endpoint tags each row with its media_type.
- */
+/** A /search/multi row. Movies use title/release_date, series name/first_air_date. */
 interface TmdbResult {
   id: number
   media_type?: string
@@ -75,13 +71,9 @@ const GENRE_ENDPOINTS: Record<MediaType, string> = {
 let genreNames: Promise<Map<string, string>> | null = null
 
 /**
- * Search results carry genre ids, not names, so the two lists are fetched once
- * per page load and shared. Keyed by media type as well as id: 28 is Action for
- * a film and nothing at all for a series, whose ids are their own namespace.
- *
- * A failure clears the cache rather than poisoning every later search, and is
- * deliberately not given the caller's AbortSignal — one abandoned keystroke
- * must not cancel a lookup the next search is waiting on.
+ * Genre id → name, fetched once per page load and keyed by media type because
+ * movie and TV genre ids are separate namespaces. Not tied to a caller's
+ * AbortSignal, since later searches share the same request.
  */
 function genreMap(): Promise<Map<string, string>> {
   if (!genreNames) {
@@ -118,13 +110,12 @@ export async function searchTitles(
       { query: trimmed, include_adult: 'false', page: '1' },
       signal,
     ),
-    // Genres are a nice-to-have on the way in; losing them must not cost you
-    // the ability to add the thing you searched for.
+    // Search still works without genres.
     genreMap().catch(() => new Map<string, string>()),
   ])
 
   return (data.results ?? [])
-    // Multi-search also returns people, who are not something you can watch.
+    // Multi-search also returns people.
     .filter((result) => result.media_type === 'movie' || result.media_type === 'tv')
     .map((result) => toSearchResult(result, genres))
 }
@@ -156,11 +147,7 @@ interface TmdbSeason {
   air_date?: string | null
 }
 
-/**
- * The season list for the drawer's per-person picker. Season 0 is TMDB's
- * "Specials" bucket and is dropped: neither of you is tracking whether you saw
- * a Christmas special, and it would sit confusingly before season 1.
- */
+/** A series' seasons, without season 0 (TMDB's "Specials"). */
 export async function fetchSeasons(tmdbId: number, signal?: AbortSignal): Promise<Season[]> {
   const data = await tmdb<{ seasons?: TmdbSeason[] }>(`/tv/${tmdbId}`, {}, signal)
 
@@ -176,4 +163,19 @@ export async function fetchSeasons(tmdbId: number, signal?: AbortSignal): Promis
       }
     })
     .sort((a, b) => a.season_number - b.season_number)
+}
+
+/**
+ * The seasons to offer in the picker. Falls back to the seasons already
+ * recorded when TMDB can't be reached, so saved data is still shown.
+ */
+export function seasonOptions(seasons: Season[] | undefined, recorded: number[]): Season[] {
+  if (seasons && seasons.length > 0) return seasons
+
+  return recorded.map((season_number) => ({
+    season_number,
+    name: `Season ${season_number}`,
+    episode_count: 0,
+    year: null,
+  }))
 }

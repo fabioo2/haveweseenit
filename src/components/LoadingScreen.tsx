@@ -1,9 +1,6 @@
 import { Loader2Icon } from 'lucide-react'
 
-/**
- * Shown while a stored passphrase is being checked. Deliberately mirrors the
- * gate's layout so an accepted passphrase doesn't visibly jump.
- */
+/** Shown while the passphrase is checked; matches the passphrase screen's layout. */
 export function LoadingScreen() {
   return (
     <div className="flex min-h-dvh items-center justify-center p-6">

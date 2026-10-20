@@ -15,10 +15,12 @@ import { useListView } from '@/store/listView'
 interface Props {
   languages: string[]
   genres: string[]
+  language: string
+  genre: string
   onShowPublicPage: () => void
 }
 
-export function ListHeader({ languages, genres, onShowPublicPage }: Props) {
+export function ListHeader({ languages, genres, language, genre, onShowPublicPage }: Props) {
   const tab = useListView((state) => state.tab)
   const setTab = useListView((state) => state.setTab)
   const sort = useListView((state) => state.sort)
@@ -27,9 +29,7 @@ export function ListHeader({ languages, genres, onShowPublicPage }: Props) {
 
   return (
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
-      {/* Four controls plus a title is more than a phone header holds. The
-          title is allowed to wrap rather than truncate, and everything but
-          Add is icon-only, so at 375 it still lands on one line. */}
+      {/* Icon-only buttons so the header fits on one line on a phone. */}
       <div className="flex items-center gap-1.5 px-4 py-3">
         <h1 className="min-w-0 flex-1 text-base font-semibold tracking-tight sm:text-lg">
           Have We Seen It?
@@ -37,11 +37,8 @@ export function ListHeader({ languages, genres, onShowPublicPage }: Props) {
 
         <ThemeToggle />
 
-        {/* Icon-only, so the filter chips below get the full width. */}
         <Select items={SORT_LABELS} value={sort} onValueChange={(value) => setSort(value as Sort)}>
-          {/* The trailing chevron is dropped: next to ⇅ it says nothing the
-              icon doesn't, and its ~20px is the difference between the
-              title fitting on one line and wrapping on an Android phone. */}
+          {/* Hide the trailing chevron to save width. */}
           <SelectTrigger
             size="sm"
             className="shrink-0 px-2 [&>svg:last-child]:hidden"
@@ -79,7 +76,7 @@ export function ListHeader({ languages, genres, onShowPublicPage }: Props) {
         <MediaTabs value={tab} onChange={setTab} />
       </div>
 
-      <FilterBar languages={languages} genres={genres} />
+      <FilterBar languages={languages} genres={genres} language={language} genre={genre} />
     </header>
   )
 }

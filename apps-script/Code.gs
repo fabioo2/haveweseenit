@@ -86,12 +86,9 @@ function doGet(e) {
     return json(publicSnapshot());
   }
 
-  // Reads only over GET. Allowing mutations here would mean the passphrase
-  // travelling in a URL, and so into browser history and proxy logs.
-  if (params.action && params.action !== 'list') {
-    return json({ ok: false, error: 'post_required' });
-  }
-  return handle('list', params, params.token);
+  // Everything authenticated is POST-only, so the passphrase never travels in
+  // a URL (and from there into browser history and proxy logs).
+  return json({ ok: false, error: 'post_required' });
 }
 
 function doPost(e) {
@@ -425,21 +422,20 @@ function entryToRow(entry) {
 }
 
 /**
- * A cell whose value begins with = or + becomes a live formula in the owner's
- * sheet, which is a data-exfiltration route (IMPORTXML and friends) via any
- * string we did not author - a TMDB title, or a note. The apostrophe marks the
- * cell as text.
- *
- * Escape on write and unescape on read, so the marker never reaches the client:
- * Sheets keeps the apostrophe in the stored value rather than stripping it, and
- * "+1" is a real film title.
+ * A cell whose value begins with =, +, - or @ can be parsed as a formula, which
+ * is a data-exfiltration route (IMPORTXML and friends) via any string we did
+ * not author - a TMDB title, or a note. The apostrophe marks the cell as text.
+ * Escaped on write and unescaped on read, so the marker never reaches the client.
  */
+var FORMULA_PREFIX = /^[=+\-@]/;
+var ESCAPED_FORMULA_PREFIX = /^'[=+\-@]/;
+
 function escapeFormula(value) {
-  return /^[=+]/.test(value) ? "'" + value : value;
+  return FORMULA_PREFIX.test(value) ? "'" + value : value;
 }
 
 function unescapeFormula(value) {
-  return /^'[=+]/.test(value) ? value.slice(1) : value;
+  return ESCAPED_FORMULA_PREFIX.test(value) ? value.slice(1) : value;
 }
 
 /** Coerces sheet values (which come back as Date/number/string) into stable JSON types. */

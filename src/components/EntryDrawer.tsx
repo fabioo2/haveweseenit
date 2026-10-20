@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { CheckIcon, StarIcon } from 'lucide-react'
 import {
   Drawer,
@@ -13,58 +13,42 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { PERSON_STYLES } from '@/components/personStyles'
 import { Poster } from '@/components/Poster'
 import { RatingPicker } from '@/components/RatingPicker'
-import { seasonOptions, useSeasons } from '@/hooks/useSeasons'
-import type { Season } from '@/lib/tmdb'
-import {
-  combinedRating,
-  formatSeasons,
-  languageLabel,
-  PEOPLE,
-  PERSON_LABELS,
-  PERSON_STYLES,
-  today,
-  type Entry,
-  type Person,
-} from '@/lib/types'
+import { useSeasons } from '@/hooks/useSeasons'
+import { combinedRating, today } from '@/lib/entries'
+import { formatRating, formatSeasons, languageLabel } from '@/lib/format'
+import { seasonOptions, type Season } from '@/lib/tmdb'
+import { PEOPLE, PERSON_LABELS, type Entry, type Person } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 interface Props {
-  draft: Entry | null
+  initialEntry: Entry
   isNew: boolean
   onClose: () => void
   onSave: (entry: Entry) => void
   onDelete: (id: string) => void
 }
 
-export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) {
-  const [entry, setEntry] = useState<Entry | null>(draft)
+/** Bottom sheet for editing an entry. Mount with a `key` per entry to reset its state. */
+export function EntryDrawer({ initialEntry, isNew, onClose, onSave, onDelete }: Props) {
+  const [entry, setEntry] = useState(initialEntry)
   const seasonsQuery = useSeasons(entry)
-
-  useEffect(() => {
-    setEntry(draft)
-  }, [draft])
-
-  if (!entry) return null
 
   const isSeries = entry.media_type === 'tv'
 
-  const patch = (changes: Partial<Entry>) =>
-    setEntry((current) => (current ? { ...current, ...changes } : current))
+  const patch = (changes: Partial<Entry>) => setEntry((current) => ({ ...current, ...changes }))
 
-  /** Promoting something off the watchlist shouldn't leave it dateless. */
-  const withDate = (current: Entry) =>
-    current.date_watched ? {} : { date_watched: today() }
+  /** Sets today's date when an entry first becomes watched. */
+  const withDate = (current: Entry) => (current.date_watched ? {} : { date_watched: today() })
 
   function setWatched(person: Person, watched: boolean) {
     setEntry((current) => {
-      if (!current) return current
       return {
         ...current,
         [`${person}_watched`]: watched,
-        // Clearing "watched" should not leave a stray rating or a list of
-        // seasons behind claiming otherwise.
+        // Un-watching also clears that person's rating and seasons.
         ...(watched
           ? withDate(current)
           : { [`${person}_rating`]: null, [`${person}_seasons`]: [] }),
@@ -72,15 +56,9 @@ export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) 
     })
   }
 
-  /**
-   * Ticking a season is the series-shaped way of saying you watched it, so it
-   * marks the person watched exactly as tapping a score does. Untickng the last
-   * one is the undo of that, and lands back on the watchlist rather than
-   * leaving a watched show with nothing behind it.
-   */
+  /** Ticking a season marks the person watched; clearing every season un-marks them. */
   function setSeasons(person: Person, seasons: number[]) {
     setEntry((current) => {
-      if (!current) return current
       const sorted = [...seasons].sort((a, b) => a - b)
 
       if (sorted.length === 0) {
@@ -101,14 +79,9 @@ export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) 
     })
   }
 
-  /**
-   * A score implies you saw it, so scoring marks it watched rather than making
-   * you say so first. That was the confusing part: you had to answer "did you
-   * watch this" before the app would let you say what you thought of it.
-   */
+  /** Rating an entry also marks the person as having watched it. */
   function setRating(person: Person, rating: number | null) {
     setEntry((current) => {
-      if (!current) return current
       return {
         ...current,
         [`${person}_rating`]: rating,
@@ -125,14 +98,9 @@ export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) 
   return (
     <Drawer open onOpenChange={(open) => !open && onClose()}>
       <DrawerContent className="max-h-[92dvh]">
-        {/* overflow-x-hidden: overflow-y-auto alone makes x scrollable too,
-            so one stray pixel of width lets the whole sheet drift sideways
-            under a thumb. */}
+        {/* overflow-x-hidden stops the sheet panning sideways on touch. */}
         <div className="mx-auto flex w-full max-w-md flex-col overflow-x-hidden overflow-y-auto overscroll-contain">
-          {/* pb: DrawerHeader's base is p-4 pb-0, which leaves the poster
-              touching the first person row. */}
-          {/* md:gap-6 matters: DrawerHeader's base styles include md:gap-0.5,
-              which beats a plain gap-6 at desktop widths. */}
+          {/* md:gap-6 overrides DrawerHeader's own md:gap-0.5. */}
           <DrawerHeader className="flex flex-row items-center gap-6 pt-8 pb-6 md:gap-6">
             <Poster
               path={entry.poster_path}
@@ -140,9 +108,7 @@ export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) 
               size="w154"
               className="h-24 w-16 shrink-0"
             />
-            {/* text-left on the wrapper, not the header: a bottom drawer sets
-                text-center via a group-data variant that outranks a plain
-                utility on the header itself. */}
+            {/* text-left goes here: the drawer's text-center variant outranks it on the header. */}
             <div className="min-w-0 flex-1 text-left">
               <DrawerTitle>{entry.title}</DrawerTitle>
               <DrawerDescription className="flex flex-wrap items-center gap-x-2 text-left">
@@ -164,9 +130,6 @@ export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) 
           </DrawerHeader>
 
           <div className="space-y-4 px-4 pb-2">
-            {/* One tinted card per person: the switch, the seasons and the
-                score are all answers about that person, and floating in a
-                shared column they read as three unrelated widgets. */}
             {PEOPLE.map((person) => {
               const watched = entry[`${person}_watched`]
               const style = PERSON_STYLES[person]
@@ -250,15 +213,13 @@ export function EntryDrawer({ draft, isNew, onClose, onSave, onDelete }: Props) 
             )}
           </div>
 
-          {/* The safe-area inset keeps the last button clear of the home
-              indicator: index.html sets viewport-fit=cover, so nothing else
-              does. */}
+          {/* Keeps the buttons clear of the iPhone home indicator. */}
           <DrawerFooter className="pb-[max(1rem,env(safe-area-inset-bottom))]">
             <Button
               onClick={() =>
                 onSave({
                   ...entry,
-                  // A watchlist item has no watched date to record.
+                  // Watchlist entries have no watch date.
                   date_watched: watchedByAnyone ? entry.date_watched : '',
                 })
               }
@@ -291,16 +252,7 @@ interface SeasonPickerProps {
   fillClass: string
 }
 
-/**
- * Numbers rather than season names, so a ten-season show still fits one row on
- * a phone; the full name and episode count live in the title attribute.
- *
- * Plain buttons rather than ToggleGroup: the base toggle marks "on" with a
- * whisper of bg-muted, and out-shouting it per person means fighting variant
- * specificity. A tick plus the person's colour makes selection unmissable, and
- * makes this row read as "pick a set" against the rating scale's "pick a
- * level" below it.
- */
+/** Multi-select row of season numbers; the full season name is in each button's title. */
 function SeasonPicker({ person, seasons, loading, selected, onChange, fillClass }: SeasonPickerProps) {
   if (seasons.length === 0) {
     return (
@@ -330,8 +282,6 @@ function SeasonPicker({ person, seasons, loading, selected, onChange, fillClass 
         >
           Seasons {selected.length > 0 && `· ${formatSeasons(selected)}`}
         </span>
-        {/* Bingeing the whole thing is the common case; ticking eight chips
-            one at a time to say so is not. */}
         <button
           type="button"
           onClick={() => onChange(allSelected ? [] : everySeason)}
@@ -377,8 +327,4 @@ function SeasonPicker({ person, seasons, loading, selected, onChange, fillClass 
       </div>
     </div>
   )
-}
-
-function formatRating(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }

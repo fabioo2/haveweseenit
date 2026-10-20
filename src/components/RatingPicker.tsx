@@ -6,17 +6,11 @@ interface Props {
   value: number | null
   onChange: (value: number | null) => void
   label: string
-  /** Classes for the filled part of the scale — the person's colour. */
+  /** Classes for the filled part of the scale. */
   fillClass: string
 }
 
-/**
- * Ten discrete tap targets rather than a slider — sliders are miserable for
- * picking an exact integer on a phone. Tapping 7 fills 1–7, so the row reads
- * as "how much" at a glance instead of a set of chips to pick from (which is
- * exactly what the season picker above it is, and looked identical to).
- * Tapping the current score clears it; so does the Clear button.
- */
+/** A 1–10 scale of buttons. Tapping the current score clears it. */
 export function RatingPicker({ value, onChange, label, fillClass }: Props) {
   return (
     <div className="space-y-1.5">

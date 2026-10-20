@@ -13,13 +13,13 @@ interface ListViewState {
   language: string
   genre: string
   sort: Sort
-  /** The "Filter your list…" box. */
+  /** Text in the list filter box. */
   query: string
   searchOpen: boolean
   editing: Editing | null
-  /** Briefly ringed after the search jumps to it. */
+  /** Entry to highlight after jumping to it from search. */
   highlightId: string | null
-  /** Waiting for its card to render so it can be scrolled into view. */
+  /** Entry to scroll into view once its card renders. */
   pendingScrollId: string | null
 
   setTab: (tab: MediaType) => void
@@ -32,17 +32,13 @@ interface ListViewState {
   openEntry: (entry: Entry) => void
   openDraft: (entry: Entry) => void
   closeEditor: () => void
-  /** Clears anything that could hide the entry, then scrolls to it and opens it. */
+  /** Clears filters that could hide the entry, then scrolls to and opens it. */
   revealEntry: (entry: Entry) => void
   clearHighlight: () => void
   clearPendingScroll: () => void
 }
 
-/**
- * Everything about how the list is being looked at, as opposed to what is in
- * it — that lives in the react-query cache. Components subscribe to the slice
- * they use, so typing in the filter box doesn't re-render the header.
- */
+/** UI state for the list page. The entries themselves live in React Query. */
 export const useListView = create<ListViewState>()((set) => ({
   tab: 'movie',
   filter: 'all',
@@ -67,7 +63,6 @@ export const useListView = create<ListViewState>()((set) => ({
   closeEditor: () => set({ editing: null }),
   revealEntry: (entry) =>
     set({
-      // Search spans both kinds, so the entry may well live in the other tab.
       tab: entry.media_type,
       filter: 'all',
       language: ANY,
