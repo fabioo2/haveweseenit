@@ -1,28 +1,19 @@
 import { memo } from 'react'
 import { BookmarkIcon, StarIcon, UserRoundIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { PERSON_STYLES } from '@/components/personStyles'
 import { Poster } from '@/components/Poster'
-import {
-  combinedRating,
-  formatSeasons,
-  isWatchlist,
-  languageLabel,
-  PEOPLE,
-  PERSON_LABELS,
-  PERSON_STYLES,
-  seasonsSeen,
-  type Entry,
-} from '@/lib/types'
+import { combinedRating, isWatchlist, seasonsSeen } from '@/lib/entries'
+import { formatDate, formatRating, formatSeasons, titleMeta } from '@/lib/format'
+import { PEOPLE, PERSON_LABELS, type Entry } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 interface Props {
   entry: Entry
   onSelect: (entry: Entry) => void
-  /** Briefly ringed after the search jumps to this entry. */
   highlighted?: boolean
 }
 
-/** Memoised: every keystroke in the list filter re-renders the whole list. */
 export const EntryCard = memo(function EntryCard({ entry, onSelect, highlighted }: Props) {
   const combined = combinedRating(entry)
   const watchlist = isWatchlist(entry)
@@ -30,15 +21,10 @@ export const EntryCard = memo(function EntryCard({ entry, onSelect, highlighted 
   const seasons = seasonsSeen(entry)
 
   const meta = [
-    entry.year ? String(entry.year) : 'Year unknown',
-    // English is the unmarked case: tagging every Hollywood film "English"
-    // would bury the Korean and Japanese ones this line exists to surface.
-    entry.original_language && entry.original_language !== 'en'
-      ? languageLabel(entry.original_language)
-      : null,
-    seasons.length > 0 ? formatSeasons(seasons) : null,
-    entry.date_watched ? `watched ${formatDate(entry.date_watched)}` : null,
-  ].filter(Boolean)
+    ...titleMeta(entry),
+    ...(seasons.length > 0 ? [formatSeasons(seasons)] : []),
+    ...(entry.date_watched ? [`watched ${formatDate(entry.date_watched)}`] : []),
+  ]
 
   return (
     <button
@@ -57,8 +43,6 @@ export const EntryCard = memo(function EntryCard({ entry, onSelect, highlighted 
       />
 
       <div className="min-w-0 flex-1 space-y-1.5">
-        {/* Wraps rather than truncates: a long title losing its end is worse
-            than a card being one line taller. */}
         <div className="min-w-0">
           <p className="font-medium leading-tight">{entry.title}</p>
           <p className="text-xs text-muted-foreground">{meta.join(' · ')}</p>
@@ -79,7 +63,7 @@ export const EntryCard = memo(function EntryCard({ entry, onSelect, highlighted 
               const rating = entry[`${person}_rating`]
               const style = PERSON_STYLES[person]
               return (
-                <Badge key={person} variant="outline" className={cn(style.badge)}>
+                <Badge key={person} variant="outline" className={style.badge}>
                   <UserRoundIcon className={style.icon} />
                   {PERSON_LABELS[person]}
                   {rating === null ? '' : ` ${rating}`}
@@ -96,8 +80,7 @@ export const EntryCard = memo(function EntryCard({ entry, onSelect, highlighted 
             <StarIcon className="size-4 fill-amber-400 text-amber-500" />
             {formatRating(combined)}
           </p>
-          {/* Only an average of two is "both" — with one rating this is just
-              that person's score, and labelling it "both" reads as a lie. */}
+          {/* "both" only when it's an average of two ratings. */}
           <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
             {raters.length > 1 ? 'both' : PERSON_LABELS[raters[0]]}
           </p>
@@ -106,19 +89,3 @@ export const EntryCard = memo(function EntryCard({ entry, onSelect, highlighted 
     </button>
   )
 })
-
-function formatRating(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1)
-}
-
-/** date_watched is a plain YYYY-MM-DD string; parsing it as UTC avoids an off-by-one day. */
-function formatDate(value: string): string {
-  const parsed = new Date(`${value}T00:00:00Z`)
-  if (Number.isNaN(parsed.getTime())) return value
-  return parsed.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC',
-  })
-}

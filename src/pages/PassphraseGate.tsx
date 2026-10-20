@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 interface Props {
   onSubmit: (passphrase: string) => void
   error?: string
-  /** Back to the public page — the gate is no longer where a visitor lands. */
+  /** Returns to the public page. */
   onBack?: () => void
 }
 

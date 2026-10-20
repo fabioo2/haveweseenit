@@ -15,12 +15,9 @@ export function useEntries() {
 }
 
 /**
- * Apps Script takes roughly a second per call, so every mutation writes to the
- * cache first and rolls back on failure. Without this the app feels broken.
- *
- * On success we patch the cache with the row the server actually returned
- * rather than refetching the whole list: that would double the round trips per
- * save, and the response is already canonical.
+ * Apps Script takes about a second per call, so mutations update the cache
+ * optimistically and roll back on failure. On success the cache is patched with
+ * the row the server returned instead of refetching the list.
  */
 function useOptimisticMutation<TVars, TResult>(
   mutationFn: (vars: TVars) => Promise<TResult>,
@@ -44,9 +41,8 @@ function useOptimisticMutation<TVars, TResult>(
     },
     onError: (_error, _vars, context) => {
       if (context) queryClient.setQueryData(ENTRIES_KEY, context.previous)
-      // Only refetch on failure, and only once everything in flight has
-      // settled — otherwise a rollback can clobber a later mutation's
-      // optimistic write.
+      // Refetch only once nothing else is in flight, so a rollback can't
+      // overwrite another mutation's optimistic update.
       if (queryClient.isMutating() <= 1) {
         queryClient.invalidateQueries({ queryKey: ENTRIES_KEY })
       }

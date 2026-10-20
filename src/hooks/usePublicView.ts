@@ -1,42 +1,33 @@
 import { useState } from 'react'
 
-/**
- * The public page is a query string rather than a route: GitHub Pages serves
- * the same index.html whatever follows the base path, so `?shared` is a
- * shareable link with no router and no 404 rewrite rules.
- */
+// The public page is a query parameter rather than a route, since GitHub Pages
+// serves the same index.html for every path.
 const SHARED_PARAM = 'shared'
 
 function sharedInUrl(): boolean {
   return new URLSearchParams(window.location.search).has(SHARED_PARAM)
 }
 
-/**
- * replaceState, not pushState: previewing shouldn't need two taps of Back.
- * The search string is assigned rather than edited through URLSearchParams,
- * which would render the flag as `?shared=` — this link gets shared by hand,
- * so the trailing `=` is worth avoiding. Safe because nothing else in this app
- * puts anything in the query string.
- */
 function setSharedInUrl(shared: boolean) {
   const url = new URL(window.location.href)
+  // Assigned directly so the URL reads `?shared` rather than `?shared=`.
   url.search = shared ? `?${SHARED_PARAM}` : ''
   window.history.replaceState(null, '', url)
 }
 
-/** Whether to show the public page, kept in step with the URL. */
+/** Whether the public page is showing, kept in sync with `?shared` in the URL. */
 export function usePublicView() {
-  const [publicView, setPublicView] = useState(sharedInUrl)
+  const [isPublicView, setIsPublicView] = useState(sharedInUrl)
 
   function enter() {
-    setPublicView(true)
+    setIsPublicView(true)
     setSharedInUrl(true)
   }
 
   function leave() {
-    setPublicView(false)
+    setIsPublicView(false)
     setSharedInUrl(false)
   }
 
-  return { publicView, enter, leave }
+  return { isPublicView, enter, leave }
 }

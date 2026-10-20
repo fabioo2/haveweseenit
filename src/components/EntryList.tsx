@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { EntryCard } from '@/components/EntryCard'
 import type { Section } from '@/hooks/useVisibleEntries'
-import { ANY, EMPTY_STATES, MEDIA_NOUNS } from '@/lib/listing'
+import { EMPTY_STATES, MEDIA_NOUNS } from '@/lib/listing'
 import type { Entry } from '@/lib/types'
 import { useListView } from '@/store/listView'
 
@@ -12,11 +12,13 @@ interface Props {
   entries: Entry[]
   visible: Entry[]
   sections: Section[]
+  /** Whether a language or genre filter is active. */
+  filtered: boolean
   error: Error | null
   onRetry: () => void
 }
 
-export function EntryList({ entries, visible, sections, error, onRetry }: Props) {
+export function EntryList({ entries, visible, sections, filtered, error, onRetry }: Props) {
   const query = useListView((state) => state.query)
   const setQuery = useListView((state) => state.setQuery)
   const openEntry = useListView((state) => state.openEntry)
@@ -24,8 +26,6 @@ export function EntryList({ entries, visible, sections, error, onRetry }: Props)
 
   useRevealScroll(visible)
 
-  // Only labelled when both kinds are on screen — otherwise the filter chip
-  // already says what you're looking at.
   const showSectionHeadings = sections.length > 1
 
   return (
@@ -62,7 +62,7 @@ export function EntryList({ entries, visible, sections, error, onRetry }: Props)
         </div>
       )}
 
-      {!error && visible.length === 0 && <EmptyState />}
+      {!error && visible.length === 0 && <EmptyState filtered={filtered} />}
 
       {sections.map(({ title, entries: sectionEntries }) => (
         <section key={title} className="space-y-2">
@@ -87,9 +87,8 @@ export function EntryList({ entries, visible, sections, error, onRetry }: Props)
   )
 }
 
-function EmptyState() {
+function EmptyState({ filtered }: { filtered: boolean }) {
   const query = useListView((state) => state.query.trim())
-  const narrowed = useListView((state) => state.language !== ANY || state.genre !== ANY)
   const filter = useListView((state) => state.filter)
   const tab = useListView((state) => state.tab)
 
@@ -97,7 +96,7 @@ function EmptyState() {
     <p className="py-12 text-center text-sm text-muted-foreground">
       {query
         ? `Nothing in your list matches “${query}”.`
-        : narrowed
+        : filtered
           ? 'Nothing matches those filters.'
           : EMPTY_STATES[filter](MEDIA_NOUNS[tab])}
     </p>
@@ -105,10 +104,8 @@ function EmptyState() {
 }
 
 /**
- * After the search jumps to an existing entry: scroll its card into view once
- * it exists, and let the highlight ring fade. Waits on `visible` because
- * clearing the filters takes a render, and the entry may have been hidden by
- * whatever was active.
+ * After search jumps to an existing entry, scrolls its card into view once it
+ * has rendered and clears the highlight after two seconds.
  */
 function useRevealScroll(visible: Entry[]) {
   const pendingScrollId = useListView((state) => state.pendingScrollId)

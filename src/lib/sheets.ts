@@ -12,9 +12,9 @@ export class UnauthorizedError extends SheetsError {
 }
 
 /**
- * Apps Script can't answer CORS preflight requests, so every call must stay a
- * "simple request": POST, Content-Type text/plain, no custom headers. The
- * token and action therefore ride inside the JSON body rather than a header.
+ * Apps Script can't answer CORS preflight requests, so every call must be a
+ * "simple request": POST with Content-Type text/plain and no custom headers.
+ * The token and action therefore go in the JSON body.
  */
 async function call<T>(payload: Record<string, unknown>): Promise<T> {
   if (!SCRIPT_URL) {
@@ -37,9 +37,7 @@ async function call<T>(payload: Record<string, unknown>): Promise<T> {
     throw new SheetsError(`Sheet request failed (${res.status})`)
   }
 
-  // Apps Script answers with an HTML page and HTTP 200 when a deployment or
-  // authorisation is unhealthy, which would otherwise surface as a raw
-  // "Unexpected token '<'" in a toast.
+  // A broken deployment answers 200 with an HTML page.
   let data: ApiResponse<T>
   try {
     data = (await res.json()) as ApiResponse<T>
@@ -54,13 +52,7 @@ async function call<T>(payload: Record<string, unknown>): Promise<T> {
   return data as T
 }
 
-/**
- * The Apps Script deployment is updated by hand, so the client can be newer
- * than the backend for as long as it takes to paste and redeploy. Filling in
- * the fields an older deployment doesn't return yet means that window shows
- * entries without seasons or genres, rather than white-screening the app on the
- * first `.includes` of an undefined.
- */
+/** Defaults for fields an older backend deployment may not return. */
 function fromServer(entry: Entry): Entry {
   return {
     ...entry,
@@ -77,14 +69,8 @@ export interface PublicSnapshot {
 }
 
 /**
- * The one call that carries no passphrase. A bare GET with no headers stays a
- * "simple request" like everything else here, and the response already allows
- * any origin.
- *
- * Every failure resolves to an empty shelf rather than throwing: a stranger
- * should never see an error screen, and this is also what the deploy window
- * looks like from the client's side — the frontend can be live before the
- * backend knows the action exists, in which case it answers `post_required`.
+ * The public snapshot; the only call without a passphrase. Any failure
+ * resolves to an empty list so visitors never see an error screen.
  */
 export async function fetchPublicSnapshot(): Promise<PublicSnapshot> {
   const empty: PublicSnapshot = { generated_at: '', entries: [] }

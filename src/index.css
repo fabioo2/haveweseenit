@@ -5,8 +5,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* The filter chips scroll sideways, but a visible scrollbar under a row of
-   pills reads as broken layout rather than as an affordance. */
+/* Hides the scrollbar on horizontally scrolling rows such as the season picker. */
 @utility no-scrollbar {
   scrollbar-width: none;
   &::-webkit-scrollbar {
