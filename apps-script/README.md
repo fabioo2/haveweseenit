@@ -13,8 +13,10 @@ browser ──POST (text/plain)──> Apps Script /exec ──> Google Sheet
 ## Setup and deploying changes
 
 1. Create a standalone project at [script.google.com](https://script.google.com) and paste in `Code.gs`.
-2. Set `SHEET_ID` to your spreadsheet's id.
-3. In **Project Settings → Script Properties**, add `TOKEN` = the shared passphrase.
+2. In **Project Settings → Script Properties**, add:
+   - `TOKEN`: the shared passphrase
+   - `SHEET_ID`: the spreadsheet's id, from its URL (`docs.google.com/spreadsheets/d/<id>/edit`)
+3. Keep the spreadsheet's sharing set to *Restricted*; the script reads it as you.
 4. **Deploy → New deployment → Web app**, executing as yourself, with access for anyone.
 
 To update an existing deployment, use **Deploy → Manage deployments → Edit →
@@ -41,7 +43,8 @@ headers. The action and token travel in the JSON body.
 The passphrase doubles as the API token. The client stores it in
 `localStorage`, and the script compares it with the `TOKEN` script property on
 every authenticated request. The check fails closed: if `TOKEN` is unset, every
-request is rejected. Authenticated actions are POST-only, so the passphrase
+request is rejected. If `SHEET_ID` is unset, authenticated requests return
+`sheet_id_missing`. Authenticated actions are POST-only, so the passphrase
 never appears in a URL.
 
 ## Public page

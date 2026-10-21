@@ -1,13 +1,13 @@
 import { fileURLToPath, URL } from 'node:url'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
-export default defineConfig({
-  // Must match the GitHub Pages repo name, since the site is served from
-  // https://<user>.github.io/haveweseenit/
-  base: '/haveweseenit/',
+export default defineConfig(({ mode }) => ({
+  // The path the site is served from, e.g. /<repo-name>/ on GitHub Pages.
+  // The deploy workflow sets it; locally it defaults to the root.
+  base: loadEnv(mode, process.cwd(), '').BASE_PATH || '/',
   plugins: [react(), tailwindcss()],
   build: {
     // The private list is lazy-loaded (see App.tsx), so a public-page visitor
@@ -20,4 +20,4 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-})
+}))
