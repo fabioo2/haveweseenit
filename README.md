@@ -66,14 +66,39 @@ src/
 apps-script/    Backend (Google Apps Script)
 ```
 
-## Deployment
+## Deploy your own
 
-Pushing to `main` builds and deploys to GitHub Pages via
-[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml).
+No server or container needed: the frontend is a static site on GitHub Pages
+and the backend is a free Google Apps Script web app writing to a Google Sheet.
+Setup takes about 15 minutes, all in browser UIs.
 
-Repository settings:
+1. **Fork this repo.** If you rename it, change `base` in
+   [`vite.config.ts`](vite.config.ts) to `/<your-repo-name>/`.
+2. **Create a Google Sheet.** Leave it empty and keep sharing set to
+   *Restricted*; the script creates the `watched` tab on first run. Copy its id
+   from the URL (`docs.google.com/spreadsheets/d/<id>/edit`).
+3. **Deploy the backend.** Follow
+   [`apps-script/README.md`](apps-script/README.md#setup-and-deploying-changes):
+   paste `Code.gs` into a new Apps Script project, set `SHEET_ID` to your sheet's
+   id, add a `TOKEN` script property (your passphrase) and deploy it as a web
+   app. Copy the `/exec` URL.
+4. **Get a TMDB token.** Create a free account at
+   [themoviedb.org](https://www.themoviedb.org/settings/api) and copy the
+   *API Read Access Token*.
+5. **Configure GitHub.** In your fork's settings:
+   - **Pages → Source:** GitHub Actions
+   - **Secrets and variables → Actions → Secrets:** `VITE_TMDB_TOKEN`
+   - **Secrets and variables → Actions → Variables:** `VITE_SCRIPT_URL`,
+     `VITE_PERSON_1_NAME`, `VITE_PERSON_2_NAME`
+6. **Deploy.** Push to `main`, or run the *Deploy to GitHub Pages* workflow from
+   the Actions tab. The site is served at
+   `https://<your-user>.github.io/<your-repo-name>/`.
 
-- **Settings → Pages → Source:** GitHub Actions
-- **Settings → Secrets and variables → Actions:** secret `VITE_TMDB_TOKEN`; variables `VITE_SCRIPT_URL`, `VITE_PERSON_1_NAME`, `VITE_PERSON_2_NAME`
+Every push to `main` redeploys the frontend via
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Changes to the
+variables take effect on the next deploy. Backend changes are deployed
+separately, from the Apps Script editor.
 
-`base` in [`vite.config.ts`](vite.config.ts) must match the repository name.
+The frontend is plain static files, so `npm run build` output in `dist/` can
+also be hosted anywhere else (Netlify, Vercel, Cloudflare Pages); set `base` to
+the path it is served from, or `/` for a domain root.
