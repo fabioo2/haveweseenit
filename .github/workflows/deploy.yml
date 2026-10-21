@@ -32,6 +32,8 @@ jobs:
         env:
           VITE_TMDB_TOKEN: ${{ secrets.VITE_TMDB_TOKEN }}
           VITE_SCRIPT_URL: ${{ vars.VITE_SCRIPT_URL }}
+          VITE_PERSON_1_NAME: ${{ vars.VITE_PERSON_1_NAME }}
+          VITE_PERSON_2_NAME: ${{ vars.VITE_PERSON_2_NAME }}
 
       - uses: actions/configure-pages@v5
 

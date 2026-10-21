@@ -1,6 +1,6 @@
 import { combinedRating, isWatchlist } from './entries'
 import { languageLabel } from './format'
-import type { Entry, MediaType } from './types'
+import { PERSON_LABELS, type Entry, type MediaType } from './types'
 
 /** Select value meaning "no filter". */
 export const ANY = '__any__'
@@ -8,8 +8,8 @@ export const ANY = '__any__'
 export const FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'both', label: 'Both seen' },
-  { value: 'fabio', label: 'Fabio' },
-  { value: 'haemin', label: 'Haemin' },
+  { value: 'fabio', label: PERSON_LABELS.fabio },
+  { value: 'haemin', label: PERSON_LABELS.haemin },
   { value: 'watchlist', label: 'Watchlist' },
 ] as const
 
@@ -33,8 +33,8 @@ export const SORT_LABELS: Record<string, string> = Object.fromEntries(
 export const EMPTY_STATES: Record<Filter, (noun: string) => string> = {
   all: (noun) => `Nothing here yet. Search for a ${noun} to get started.`,
   both: (noun) => `You haven't both seen a ${noun} yet.`,
-  fabio: (noun) => `Fabio hasn’t watched a ${noun} yet.`,
-  haemin: (noun) => `Haemin hasn’t watched a ${noun} yet.`,
+  fabio: (noun) => `${PERSON_LABELS.fabio} hasn’t watched a ${noun} yet.`,
+  haemin: (noun) => `${PERSON_LABELS.haemin} hasn’t watched a ${noun} yet.`,
   watchlist: (noun) => `No ${noun}s on the watchlist.`,
 }
 

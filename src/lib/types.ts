@@ -9,9 +9,10 @@ export const MEDIA_LABELS: Record<MediaType, string> = {
 export const PEOPLE = ['fabio', 'haemin'] as const
 export type Person = (typeof PEOPLE)[number]
 
+/** Display names, set at build time. The keys stay fixed because they name the sheet columns. */
 export const PERSON_LABELS: Record<Person, string> = {
-  fabio: 'Fabio',
-  haemin: 'Haemin',
+  fabio: import.meta.env.VITE_PERSON_1_NAME || 'Person 1',
+  haemin: import.meta.env.VITE_PERSON_2_NAME || 'Person 2',
 }
 
 /** One row of the `watched` sheet. Mirrors HEADERS in apps-script/Code.gs. */
