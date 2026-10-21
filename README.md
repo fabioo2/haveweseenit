@@ -38,6 +38,7 @@ npm run dev
 | `VITE_SCRIPT_URL` | Apps Script web app URL, ending in `/exec` |
 | `VITE_PERSON_1_NAME` | Display name for the first person (optional, defaults to `Person 1`) |
 | `VITE_PERSON_2_NAME` | Display name for the second person (optional, defaults to `Person 2`) |
+| `BASE_PATH` | Path the site is served from (optional, defaults to `/`; the deploy workflow sets it) |
 
 All values are embedded in the built bundle and are not secrets. The only
 secret is the passphrase, which is stored in the Apps Script project and never
@@ -72,16 +73,16 @@ No server or container needed: the frontend is a static site on GitHub Pages
 and the backend is a free Google Apps Script web app writing to a Google Sheet.
 Setup takes about 15 minutes, all in browser UIs.
 
-1. **Fork this repo.** If you rename it, change `base` in
-   [`vite.config.ts`](vite.config.ts) to `/<your-repo-name>/`.
+1. **Fork this repo.** Any repository name works; the deploy workflow sets the
+   site's base path from it.
 2. **Create a Google Sheet.** Leave it empty and keep sharing set to
    *Restricted*; the script creates the `watched` tab on first run. Copy its id
    from the URL (`docs.google.com/spreadsheets/d/<id>/edit`).
 3. **Deploy the backend.** Follow
    [`apps-script/README.md`](apps-script/README.md#setup-and-deploying-changes):
-   paste `Code.gs` into a new Apps Script project, set `SHEET_ID` to your sheet's
-   id, add a `TOKEN` script property (your passphrase) and deploy it as a web
-   app. Copy the `/exec` URL.
+   paste `Code.gs` into a new Apps Script project, add the script properties
+   `TOKEN` (your passphrase) and `SHEET_ID` (your sheet's id), and deploy it as
+   a web app. Copy the `/exec` URL.
 4. **Get a TMDB token.** Create a free account at
    [themoviedb.org](https://www.themoviedb.org/settings/api) and copy the
    *API Read Access Token*.
@@ -100,5 +101,5 @@ variables take effect on the next deploy. Backend changes are deployed
 separately, from the Apps Script editor.
 
 The frontend is plain static files, so `npm run build` output in `dist/` can
-also be hosted anywhere else (Netlify, Vercel, Cloudflare Pages); set `base` to
-the path it is served from, or `/` for a domain root.
+also be hosted anywhere else (Netlify, Vercel, Cloudflare Pages); set
+`BASE_PATH` to the path it is served from, or leave it unset for a domain root.

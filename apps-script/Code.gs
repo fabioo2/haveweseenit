@@ -9,8 +9,9 @@
  *   Deploy > New deployment > Web app
  *   Execute as: Me     Who has access: Anyone
  *
- * Set the shared passphrase in Project Settings > Script Properties:
- *   TOKEN = <your passphrase>
+ * Then in Project Settings > Script Properties, set:
+ *   TOKEN    = <your passphrase>
+ *   SHEET_ID = <the spreadsheet id from its URL>
  *
  * Notes on CORS: Apps Script cannot answer preflight OPTIONS requests, so the
  * client must send "simple" requests only: POST with Content-Type
@@ -18,7 +19,6 @@
  * therefore travel inside the JSON body, never in a header.
  */
 
-var SHEET_ID = '1hfmQVmX64QszxBXAWrvr97vHJVJ3738hJTOUUkmQNDs';
 var SHEET_NAME = 'watched';
 
 /**
@@ -28,7 +28,7 @@ var SHEET_NAME = 'watched';
  * new version and deploying it are three separate steps, and skipping any one
  * of them fails silently by serving the previous version.
  */
-var SCHEMA_VERSION = 4;
+var SCHEMA_VERSION = 5;
 
 /**
  * The public "top picks" page. A title qualifies when EITHER person rated it
@@ -143,7 +143,9 @@ function handle(action, payload, token) {
 
 function spreadsheet() {
   if (!cachedSpreadsheet) {
-    cachedSpreadsheet = SpreadsheetApp.openById(SHEET_ID);
+    var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
+    if (!id) throw new Error('sheet_id_missing');
+    cachedSpreadsheet = SpreadsheetApp.openById(id);
   }
   return cachedSpreadsheet;
 }
