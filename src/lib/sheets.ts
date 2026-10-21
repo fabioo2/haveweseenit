@@ -56,8 +56,8 @@ async function call<T>(payload: Record<string, unknown>): Promise<T> {
 function fromServer(entry: Entry): Entry {
   return {
     ...entry,
-    fabio_seasons: entry.fabio_seasons ?? [],
-    haemin_seasons: entry.haemin_seasons ?? [],
+    person1_seasons: entry.person1_seasons ?? [],
+    person2_seasons: entry.person2_seasons ?? [],
     genres: entry.genres ?? [],
     original_language: entry.original_language ?? '',
   }

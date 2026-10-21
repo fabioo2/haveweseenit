@@ -92,7 +92,7 @@ export function EntryDrawer({ initialEntry, isNew, onClose, onSave, onDelete }: 
     })
   }
 
-  const watchedByAnyone = entry.fabio_watched || entry.haemin_watched
+  const watchedByAnyone = entry.person1_watched || entry.person2_watched
   const combined = combinedRating(entry)
 
   return (
