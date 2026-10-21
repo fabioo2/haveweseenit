@@ -60,7 +60,7 @@ export function PublicPage({ onLogin, onExitPreview }: Props) {
           </div>
 
           <p className="mt-1 text-xs text-muted-foreground">
-            Everything Fabio or Haemin rated 9 or higher.
+            Everything {PERSON_LABELS.fabio} or {PERSON_LABELS.haemin} rated 9 or higher.
           </p>
         </div>
 

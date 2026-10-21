@@ -28,7 +28,7 @@ Requires Node 22+.
 
 ```bash
 npm install
-cp .env.example .env.local   # then fill in both values
+cp .env.example .env.local   # then fill in the values
 npm run dev
 ```
 
@@ -36,8 +36,10 @@ npm run dev
 | --- | --- |
 | `VITE_TMDB_TOKEN` | TMDB API read access token (v4) |
 | `VITE_SCRIPT_URL` | Apps Script web app URL, ending in `/exec` |
+| `VITE_PERSON_1_NAME` | Display name for the first person (optional, defaults to `Person 1`) |
+| `VITE_PERSON_2_NAME` | Display name for the second person (optional, defaults to `Person 2`) |
 
-Both values are embedded in the built bundle and are not secrets. The only
+All values are embedded in the built bundle and are not secrets. The only
 secret is the passphrase, which is stored in the Apps Script project and never
 in this repo. See [`apps-script/README.md`](apps-script/README.md) for how
 authentication works.
@@ -72,6 +74,6 @@ Pushing to `main` builds and deploys to GitHub Pages via
 Repository settings:
 
 - **Settings → Pages → Source:** GitHub Actions
-- **Settings → Secrets and variables → Actions:** secret `VITE_TMDB_TOKEN`, variable `VITE_SCRIPT_URL`
+- **Settings → Secrets and variables → Actions:** secret `VITE_TMDB_TOKEN`; variables `VITE_SCRIPT_URL`, `VITE_PERSON_1_NAME`, `VITE_PERSON_2_NAME`
 
 `base` in [`vite.config.ts`](vite.config.ts) must match the repository name.
