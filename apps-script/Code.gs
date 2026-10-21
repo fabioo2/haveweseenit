@@ -28,7 +28,7 @@ var SHEET_NAME = 'watched';
  * new version and deploying it are three separate steps, and skipping any one
  * of them fails silently by serving the previous version.
  */
-var SCHEMA_VERSION = 5;
+var SCHEMA_VERSION = 6;
 
 /**
  * The public "top picks" page. A title qualifies when EITHER person rated it
@@ -56,14 +56,14 @@ var HEADERS = [
   'year',
   'poster_path',
   'date_watched',
-  'fabio_watched',
-  'haemin_watched',
-  'fabio_rating',
-  'haemin_rating',
+  'person1_watched',
+  'person2_watched',
+  'person1_rating',
+  'person2_rating',
   'notes',
   'added_at',
-  'fabio_seasons',
-  'haemin_seasons',
+  'person1_seasons',
+  'person2_seasons',
   'original_language',
   'genres'
 ];
@@ -182,8 +182,9 @@ function sheet() {
     writeHeaderRow(sh);
     sh.setFrozenRows(1);
   } else if (!headerRowMatches(sh)) {
-    // Safe precisely because columns are only ever appended: the existing rows
-    // still line up, they just have empty cells under the new names.
+    // Safe precisely because columns are only ever appended or renamed in
+    // place: the existing rows still line up, under the new names. This is
+    // also how the fabio_/haemin_ headers became person1_/person2_.
     writeHeaderRow(sh);
   }
 
@@ -339,8 +340,8 @@ function qualifies(entry) {
 
 function ratings(entry) {
   var given = [];
-  if (entry.fabio_rating !== null) given.push(entry.fabio_rating);
-  if (entry.haemin_rating !== null) given.push(entry.haemin_rating);
+  if (entry.person1_rating !== null) given.push(entry.person1_rating);
+  if (entry.person2_rating !== null) given.push(entry.person2_rating);
   return given;
 }
 
@@ -376,8 +377,8 @@ function publicEntry(entry) {
     title: entry.title,
     year: entry.year,
     poster_path: entry.poster_path,
-    fabio_rating: entry.fabio_rating,
-    haemin_rating: entry.haemin_rating,
+    person1_rating: entry.person1_rating,
+    person2_rating: entry.person2_rating,
     original_language: entry.original_language,
     genres: entry.genres
   };
@@ -452,18 +453,18 @@ function normalize(entry) {
     year: num(entry.year),
     poster_path: text(entry.poster_path),
     date_watched: dateString(entry.date_watched),
-    fabio_watched: bool(entry.fabio_watched),
-    haemin_watched: bool(entry.haemin_watched),
-    fabio_rating: num(entry.fabio_rating),
-    haemin_rating: num(entry.haemin_rating),
+    person1_watched: bool(entry.person1_watched),
+    person2_watched: bool(entry.person2_watched),
+    person1_rating: num(entry.person1_rating),
+    person2_rating: num(entry.person2_rating),
     notes: text(entry.notes),
     added_at: isDate(entry.added_at)
       ? entry.added_at.toISOString()
       : String(entry.added_at || ''),
     // Only a series has seasons. Dropping them for a movie keeps a stray value
     // from surviving in a column nothing on the client would ever show.
-    fabio_seasons: mediaType === 'tv' ? seasonList(entry.fabio_seasons) : [],
-    haemin_seasons: mediaType === 'tv' ? seasonList(entry.haemin_seasons) : [],
+    person1_seasons: mediaType === 'tv' ? seasonList(entry.person1_seasons) : [],
+    person2_seasons: mediaType === 'tv' ? seasonList(entry.person2_seasons) : [],
     // ISO 639-1 from TMDB. Empty for rows added before the column existed, and
     // the client renders those as "Unknown" rather than guessing English.
     original_language: text(entry.original_language).toLowerCase(),

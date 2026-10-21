@@ -7,11 +7,11 @@ export function entryId(mediaType: MediaType, tmdbId: number): string {
 }
 
 export function isWatchlist(entry: Entry): boolean {
-  return !entry.fabio_watched && !entry.haemin_watched
+  return !entry.person1_watched && !entry.person2_watched
 }
 
 function givenRatings(entry: Ratings): number[] {
-  return [entry.fabio_rating, entry.haemin_rating].filter(
+  return [entry.person1_rating, entry.person2_rating].filter(
     (rating): rating is number => rating !== null,
   )
 }
@@ -31,7 +31,7 @@ export function bestRating(entry: Ratings): number | null {
 
 /** Seasons either person has seen. */
 export function seasonsSeen(entry: Entry): number[] {
-  const union = new Set([...entry.fabio_seasons, ...entry.haemin_seasons])
+  const union = new Set([...entry.person1_seasons, ...entry.person2_seasons])
   return [...union].sort((a, b) => a - b)
 }
 
@@ -70,14 +70,14 @@ export function draftFromSearch(result: SearchResult): Entry {
     year: result.year,
     poster_path: result.poster_path,
     date_watched: today(),
-    fabio_watched: false,
-    haemin_watched: false,
-    fabio_rating: null,
-    haemin_rating: null,
+    person1_watched: false,
+    person2_watched: false,
+    person1_rating: null,
+    person2_rating: null,
     notes: '',
     added_at: '',
-    fabio_seasons: [],
-    haemin_seasons: [],
+    person1_seasons: [],
+    person2_seasons: [],
     original_language: result.original_language,
     genres: result.genres,
   }

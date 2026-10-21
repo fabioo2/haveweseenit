@@ -55,7 +55,7 @@ whitelist of fields:
 
 ```
 id, media_type, tmdb_id, title, year, poster_path,
-fabio_rating, haemin_rating, original_language, genres
+person1_rating, person2_rating, original_language, genres
 ```
 
 Notes, watch dates, watched flags, seasons and the watchlist are never sent.
@@ -75,11 +75,11 @@ The `watched` tab is created on first run.
 | `media_type` | `movie` or `tv` |
 | `tmdb_id`, `title`, `year`, `poster_path` | Copied from TMDB when added |
 | `date_watched` | `YYYY-MM-DD`; empty while on the watchlist |
-| `fabio_watched`, `haemin_watched` | Booleans |
-| `fabio_rating`, `haemin_rating` | 1–10, or empty |
+| `person1_watched`, `person2_watched` | Booleans |
+| `person1_rating`, `person2_rating` | 1–10, or empty |
 | `notes` | Free text |
 | `added_at` | Set by the script |
-| `fabio_seasons`, `haemin_seasons` | e.g. `1,2,3`; empty for movies |
+| `person1_seasons`, `person2_seasons` | e.g. `1,2,3`; empty for movies |
 | `original_language` | ISO 639-1, e.g. `ko` |
 | `genres` | e.g. `Drama,Thriller` |
 

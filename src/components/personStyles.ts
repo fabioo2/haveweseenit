@@ -14,7 +14,7 @@ interface PersonStyle {
  * `switch` uses `!` to beat the Switch component's own data-checked background.
  */
 export const PERSON_STYLES: Record<Person, PersonStyle> = {
-  fabio: {
+  person1: {
     badge: 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300',
     icon: 'text-sky-600 dark:text-sky-400',
     dot: 'bg-sky-500',
@@ -22,7 +22,7 @@ export const PERSON_STYLES: Record<Person, PersonStyle> = {
     card: 'border-sky-500/25 bg-sky-500/5',
     switch: 'data-checked:bg-sky-600! dark:data-checked:bg-sky-500!',
   },
-  haemin: {
+  person2: {
     badge: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300',
     icon: 'text-violet-600 dark:text-violet-400',
     dot: 'bg-violet-500',

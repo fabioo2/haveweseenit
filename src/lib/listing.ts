@@ -8,8 +8,8 @@ export const ANY = '__any__'
 export const FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'both', label: 'Both seen' },
-  { value: 'fabio', label: PERSON_LABELS.fabio },
-  { value: 'haemin', label: PERSON_LABELS.haemin },
+  { value: 'person1', label: PERSON_LABELS.person1 },
+  { value: 'person2', label: PERSON_LABELS.person2 },
   { value: 'watchlist', label: 'Watchlist' },
 ] as const
 
@@ -33,8 +33,8 @@ export const SORT_LABELS: Record<string, string> = Object.fromEntries(
 export const EMPTY_STATES: Record<Filter, (noun: string) => string> = {
   all: (noun) => `Nothing here yet. Search for a ${noun} to get started.`,
   both: (noun) => `You haven't both seen a ${noun} yet.`,
-  fabio: (noun) => `${PERSON_LABELS.fabio} hasn’t watched a ${noun} yet.`,
-  haemin: (noun) => `${PERSON_LABELS.haemin} hasn’t watched a ${noun} yet.`,
+  person1: (noun) => `${PERSON_LABELS.person1} hasn’t watched a ${noun} yet.`,
+  person2: (noun) => `${PERSON_LABELS.person2} hasn’t watched a ${noun} yet.`,
   watchlist: (noun) => `No ${noun}s on the watchlist.`,
 }
 
@@ -46,11 +46,11 @@ export const MEDIA_NOUNS: Record<MediaType, string> = {
 export function matchesFilter(entry: Entry, filter: Filter): boolean {
   switch (filter) {
     case 'both':
-      return entry.fabio_watched && entry.haemin_watched
-    case 'fabio':
-      return entry.fabio_watched
-    case 'haemin':
-      return entry.haemin_watched
+      return entry.person1_watched && entry.person2_watched
+    case 'person1':
+      return entry.person1_watched
+    case 'person2':
+      return entry.person2_watched
     case 'watchlist':
       return isWatchlist(entry)
     default:
